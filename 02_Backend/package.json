@@ -1,0 +1,21 @@
+{
+  "name": "02_Backend",
+  "scripts": {
+    "dev": "bun run --hot src/index.ts",
+    "db:up": "docker compose -f db/docker-compose.yml --env-file .env up -d",
+    "db:down": "docker compose -f db/docker-compose.yml --env-file .env down"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "drizzle-orm": "^0.45.1",
+    "hono": "^4.11.4",
+    "pg": "^8.17.1",
+    "zod": "^4.3.5"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/pg": "^8.16.0",
+    "drizzle-kit": "^0.31.8",
+    "tsx": "^4.21.0"
+  }
+}
