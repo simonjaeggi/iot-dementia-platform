@@ -1,41 +1,41 @@
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
+} from "@/components/ui/card";
 import {
   Field,
   FieldDescription,
   FieldGroup,
   FieldLabel,
-} from "@/components/ui/field"
-import { Input } from "@/components/ui/input"
-import { AuthContext } from "@/auth/auth-provider"
-import { useLocation, useNavigate } from "react-router-dom"
-import { useContext } from "react"
+} from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useContext } from "react";
+import { AuthContext } from "@/auth/auth-context";
 
 export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
-  const ctx = useContext(AuthContext)
-  if (!ctx) throw new Error("LoginForm must be used within AuthProvider")
-  const { login } = ctx
-  const navigate = useNavigate()
-  const location = useLocation()
-  const from = (location.state as { from?: Location })?.from?.pathname ?? "/"
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("LoginForm must be used within AuthProvider");
+  const { login } = ctx;
+  const navigate = useNavigate();
+  const location = useLocation();
+  const from = (location.state as { from?: Location })?.from?.pathname ?? "/";
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const formData = new FormData(event.currentTarget)
-    const email = String(formData.get("email") ?? "")
-    const password = String(formData.get("password") ?? "")
-    await login(email, password)
-    navigate(from, { replace: true })
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const email = String(formData.get("email") ?? "");
+    const password = String(formData.get("password") ?? "");
+    await login(email, password);
+    navigate(from, { replace: true });
   }
 
   return (
@@ -74,11 +74,12 @@ export function LoginForm({
               </Field>
               <Field>
                 <Button type="submit">Login</Button>
-                <Button variant="outline" type="button">
-                  Login with Google
-                </Button>
+
                 <FieldDescription className="text-center">
-                  Don&apos;t have an account? <a href="#">Sign up</a>
+                  Do you have a registration code?{" "}
+                  <Link to="/register" className="underline">
+                    Register
+                  </Link>
                 </FieldDescription>
               </Field>
             </FieldGroup>
@@ -86,5 +87,5 @@ export function LoginForm({
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
