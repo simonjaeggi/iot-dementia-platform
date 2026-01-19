@@ -15,6 +15,13 @@
       "when": 1768812103362,
       "tag": "0001_soft_nekra",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1768822759755,
+      "tag": "0002_sparkling_serpent_society",
+      "breakpoints": true
     }
   ]
 }
