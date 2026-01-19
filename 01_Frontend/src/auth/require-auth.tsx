@@ -1,7 +1,7 @@
 import { Navigate, useLocation } from "react-router-dom"
 import { useContext } from "react"
-import { AuthContext } from "./auth-provider"
 import type { JSX } from "react"
+import { AuthContext } from "./auth-context"
 
 export function RequireAuth({ children }: { children: JSX.Element }) {
   const ctx = useContext(AuthContext)

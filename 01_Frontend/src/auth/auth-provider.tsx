@@ -1,45 +1,58 @@
-import React, { createContext, useEffect, useState } from "react"
+import React from "react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { axiosInstance } from "@/lib/api"
+import type { User } from "./types"
+import { AuthContext } from "./auth-context"
 
-type AuthContextValue = {
-  user: null | { id: string; email: string }
-  isLoading: boolean
-  login: (email: string, password: string) => Promise<void>
-  logout: () => void
+async function fetchMe(): Promise<User | null> {
+  try {
+    const res = await axiosInstance.get<User>("/auth/me")
+    return res.data
+  } catch {
+    return null 
+  }
 }
 
-export const AuthContext = createContext<AuthContextValue | null>(null)
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<AuthContextValue["user"]>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const qc = useQueryClient()
 
-  useEffect(() => {
-    // Example: load session/token from localStorage and validate (or call /me)
-    try {
-      const raw = localStorage.getItem("user")
-      setUser(raw ? JSON.parse(raw) : null)
-    } catch {
-      localStorage.removeItem("user")
-      setUser(null)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
+  const me = useQuery({
+    queryKey: ["me"],
+    queryFn: fetchMe,
+    retry: false,
+  })
 
-  async function login(email: string, password: string) {
-    // TODO: call your API, receive token + user
-    const fakeUser = { id: "1", email }
-    localStorage.setItem("user", JSON.stringify(fakeUser))
-    setUser(fakeUser)
-  }
+  const login = useMutation({
+    mutationFn: (vars: { email: string; password: string }) =>
+      axiosInstance.post("/auth/login", vars),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["me"] }),
+  })
 
-  function logout() {
-    localStorage.removeItem("user")
-    setUser(null)
-  }
+  const register = useMutation({
+    mutationFn: (vars: { email: string; password: string; accessCode: string, name: string }) =>
+      axiosInstance.post("/auth/register", vars),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["me"] }),
+  })
+
+  const logout = useMutation({
+    mutationFn: () => axiosInstance.post("/auth/logout"),
+    onSuccess: () => {
+      qc.setQueryData(["me"], null)
+      qc.invalidateQueries({ queryKey: ["me"] })
+    },
+  })
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout }}>
+    <AuthContext.Provider
+      value={{
+        user: me.data ?? null,
+        isLoading: me.isLoading,
+        login: (email, password) => login.mutateAsync({ email, password }).then(() => {}),
+        register: (email, password, accessCode, name) =>
+          register.mutateAsync({ email, password, accessCode, name }).then(() => {}),
+        logout: () => logout.mutateAsync().then(() => {}),
+      }}
+    >
       {children}
     </AuthContext.Provider>
   )
