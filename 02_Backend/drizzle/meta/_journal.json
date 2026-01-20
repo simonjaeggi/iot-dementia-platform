@@ -22,6 +22,13 @@
       "when": 1768822759755,
       "tag": "0002_sparkling_serpent_society",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1768872255515,
+      "tag": "0003_previous_purple_man",
+      "breakpoints": true
     }
   ]
 }
