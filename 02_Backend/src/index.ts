@@ -22,14 +22,17 @@ app.get('/', (c) => c.text('API running'))
 
 app.onError((err, c) => {
   if (err instanceof HTTPException) {
-    if (err.status === 401) {
-      return c.json({ message: 'Unauthorized' }, 401)
-    }
-    return err.getResponse()
+    return c.json(
+      {
+        message: err.message,
+        status: err.status,
+      },
+      err.status
+    )
   }
-  console.error(err)
-  return c.json({ message: 'Internal Server Error' }, 500)
-})
 
+  console.error(err)
+  return c.json({ message: "Internal Server Error", status: 500 }, 500)
+})
 
 export default app
