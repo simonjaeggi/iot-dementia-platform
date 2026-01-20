@@ -1,3 +1,4 @@
 import { users } from "./schema";
 
-export type NewUser = typeof users.$inferInsert;
+export type ExistingUser = typeof users.$inferSelect
+export type NewUser = typeof users.$inferInsert
