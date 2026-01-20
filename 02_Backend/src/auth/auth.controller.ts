@@ -3,12 +3,21 @@ import { HTTPException } from "hono/http-exception"
 import { loginUser, registerUser } from "./auth.service"
 import { LoginUserSchema } from "./zod/login-user.schema"
 import { RegisterUserSchema } from "./zod/register-user.schema"
+import { setCookie } from "hono/cookie"
 
 export async function login(c: Context) {
   const body = await c.req.json()
   const dto = LoginUserSchema.parse(body)
+  const token = await loginUser(dto)
 
-  return c.json(await loginUser(dto))
+  setCookie(c, "accessToken", token, {
+    httpOnly: true,
+    secure: true,   
+    sameSite: "lax",
+    path: "/",
+  })
+
+  return c.json({ ok: true })
 }
 
 export async function logout(c: Context) {
