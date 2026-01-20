@@ -3,7 +3,8 @@
   "scripts": {
     "dev": "bun run --hot src/index.ts",
     "db:up": "docker compose -f db/docker-compose.yml --env-file .env up -d",
-    "db:down": "docker compose -f db/docker-compose.yml --env-file .env down"
+    "db:down": "docker compose -f db/docker-compose.yml --env-file .env down",
+    "db:delete": "docker compose -f db/docker-compose.yml --env-file .env down -v"
   },
   "dependencies": {
     "dotenv": "^17.2.3",
