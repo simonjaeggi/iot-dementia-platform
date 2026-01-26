@@ -7,8 +7,26 @@ import { RegistrationForm } from "./components/registration-form";
 export default function App() {
   return (
     <Routes>
-      <Route path="/login" element={<LoginForm />} />
-      <Route path="/register" element={<RegistrationForm />} />
+      <Route
+        path="/login"
+        element={
+          <div className="min-h-screen flex items-center justify-center p-4">
+            <div className="w-full max-w-md">
+              <LoginForm />
+            </div>
+          </div>
+        }
+      />
+      <Route
+        path="/register"
+        element={
+          <div className="min-h-screen flex items-center justify-center p-4">
+            <div className="w-full max-w-md">
+              <RegistrationForm />
+            </div>
+          </div>
+        }
+      />
 
       <Route
         path="/"
