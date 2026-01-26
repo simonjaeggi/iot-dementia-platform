@@ -1,4 +1,5 @@
 import { defineConfig } from 'drizzle-kit';
+import { validatedEnv } from './src/env-validation';
 
 
 export default defineConfig({
@@ -6,6 +7,6 @@ export default defineConfig({
   schema: './src/db/schema.ts',
   dialect: 'postgresql',
   dbCredentials: {
-    url: process.env.DATABASE_URL!,
+    url: validatedEnv.DATABASE_URL,
   },
 });
