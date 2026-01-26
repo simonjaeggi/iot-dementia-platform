@@ -27,3 +27,20 @@ export const refreshSessions = pgTable(
       .defaultNow(),
   }
 )
+
+export const accessCodes = pgTable("access_codes", {
+  code: varchar("code", { length: 14 }).primaryKey().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  createdByUserId: integer("created_by_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  redeemedAt: timestamp("redeemed_at", { withTimezone: true }),
+  redeemedByUserId: integer("redeemed_by_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  redeemedByEmail: text("redeemed_by_email"),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+})
