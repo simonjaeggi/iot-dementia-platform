@@ -1,4 +1,5 @@
-export type User = { id: string; email: string }
+import type { User } from "./zod/user.schema"
+
 export type AuthContextValue = {
   user: User | null
   isLoading: boolean
