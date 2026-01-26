@@ -1,10 +1,10 @@
 import React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { axiosInstance } from "@/lib/api";
-import type { User } from "./types";
 import { AuthContext } from "./auth-context";
 import { toast } from "sonner";
 import axios from "axios";
+import type { User } from "./zod/user.schema";
 
 type ApiErrorResponse = { message?: string };
 
@@ -25,6 +25,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     queryFn: fetchMe,
     retry: false,
   });
+  const isAuthLoading = me.isLoading || me.isFetching;
 
   const loginMutation = useMutation({
     mutationFn: async (vars: { email: string; password: string }) => {
@@ -32,7 +33,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
     onSuccess: async () => {
       toast.success("Login successful");
-      await qc.invalidateQueries({ queryKey: ["me"] });
+      await qc.refetchQueries({ queryKey: ["me"] });
     },
     onError: (error: unknown) => {
       const msg = getAxiosErrorMessage(error, "Login failed.");
@@ -78,7 +79,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <AuthContext.Provider
       value={{
         user: me.data ?? null,
-        isLoading: me.isLoading,
+        isLoading: isAuthLoading,
         login: (email, password) =>
           loginMutation.mutateAsync({ email, password }),
         register: (email, password, accessCode, name) =>
