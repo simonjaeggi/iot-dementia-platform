@@ -1,5 +1,5 @@
 import z from "zod";
-import { AccessCodeSchema } from "./auth/zod/access-code.schema";
+import { AccessCodeSchema } from "./api/auth/zod/access-code.schema";
 
 const envSchema = z.object({
   JWT_SECRET: z.string().min(1, "JWT_SECRET is required"),
@@ -10,7 +10,10 @@ const envSchema = z.object({
   POSTGRES_PORT: z.coerce.number().int().positive().default(5432),
   POSTGRES_HOST: z.string().min(1, "POSTGRES_HOST is required"),
   DATABASE_URL: z.url("DATABASE_URL must be a valid URL"),
-  INITIAL_ACCESS_CODE: AccessCodeSchema
+  INITIAL_ACCESS_CODE: AccessCodeSchema,
+  HOST: z.string().min(1, "Host is required."),
+  PORT: z.coerce.number().int().positive()
+
 });
 
 type EnvType = z.infer<typeof envSchema>;
@@ -26,6 +29,8 @@ const env = {
   POSTGRES_HOST: process.env.POSTGRES_HOST,
   DATABASE_URL: process.env.DATABASE_URL,
   INITIAL_ACCESS_CODE: process.env.INITIAL_ACCESS_CODE,
+  HOST: process.env.HOST,
+  PORT: process.env.PORT
 };
 
 export const validateEnv: ValidateEnvFn = () => {

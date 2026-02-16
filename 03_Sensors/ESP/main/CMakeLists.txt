@@ -1,0 +1,23 @@
+idf_component_register(
+    SRCS
+        "app_main.c"
+        "config/device_config.c"
+        "app_context.c"
+        "network/backend_communication.c"
+        "network/backend_service.c"
+        "network/wifi_helper.c"
+        "provisioning/provisioning_https.c"
+        "provisioning/provisioning_cert.c"
+        "storage/nvs_helper.c"
+    INCLUDE_DIRS
+        "."
+        "config"
+        "network"
+        "provisioning"
+        "storage"
+    EMBED_TXTFILES
+        "certs/server.pem"
+        "certs/prov_server.crt"
+        "certs/prov_server.key"
+    REQUIRES mbedtls nvs_flash esp_event esp_netif esp_wifi esp_http_server esp_https_server esp_http_client esp_hw_support
+)

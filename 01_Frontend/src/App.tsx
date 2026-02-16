@@ -1,4 +1,5 @@
 import Dashboard from "./app/dashboard/dashboard";
+import Devices from "./app/devices/devices";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { LoginForm } from "./components/login-form";
 import { RequireAuth } from "./auth/require-auth";
@@ -33,6 +34,14 @@ export default function App() {
         element={
           <RequireAuth>
             <Dashboard />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/devices"
+        element={
+          <RequireAuth>
+            <Devices />
           </RequireAuth>
         }
       />

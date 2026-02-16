@@ -1,0 +1,1 @@
+ALTER TABLE "device_certificates" DROP COLUMN "cert_pem";
