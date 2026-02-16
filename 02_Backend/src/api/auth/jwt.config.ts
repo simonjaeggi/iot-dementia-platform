@@ -1,4 +1,4 @@
-import { validatedEnv } from "../env-validation";
+import { validatedEnv } from "../../env-validation"
 
 export const jwtOptions = {
   secret: validatedEnv.JWT_SECRET,

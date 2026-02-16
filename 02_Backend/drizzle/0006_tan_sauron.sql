@@ -1,0 +1,2 @@
+ALTER TABLE "device_certificates" ADD COLUMN "cert_fingerprint_sha256" varchar(64) NOT NULL;--> statement-breakpoint
+ALTER TABLE "device_certificates" ADD CONSTRAINT "device_certificates_cert_fingerprint_sha256_unique" UNIQUE("cert_fingerprint_sha256");
