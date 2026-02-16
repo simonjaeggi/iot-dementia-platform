@@ -2,8 +2,8 @@ import * as React from "react"
 import {
   IconCamera,
   IconChartBar,
-  IconDashboard,
   IconDatabase,
+  IconDeviceIpadCode,
   IconFileAi,
   IconFileDescription,
   IconFileWord,
@@ -39,9 +39,9 @@ const data = {
   },
   navMain: [
     {
-      title: "Dashboard",
-      url: "#",
-      icon: IconDashboard,
+      title: "Devices",
+      url: "/devices",
+      icon: IconDeviceIpadCode,
     },
     {
       title: "Lifecycle",

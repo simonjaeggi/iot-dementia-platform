@@ -1,13 +1,11 @@
 import { Hono } from 'hono'
-import authRoutes from './auth/auth.routes'
-import apiRoutes from './api/api.routes'
-import { jwt } from 'hono/jwt'
 import { logger } from 'hono/logger'
-import { publicRoutes } from './public/public.routes'
 import { HTTPException } from 'hono/http-exception'
-import { jwtOptions } from './auth/jwt.config'
-import { validateEnv } from './env-validation'
-import { createInitialAccessCode } from './auth/auth.service'
+import { validatedEnv, validateEnv } from './env-validation'
+import {deviceRoutes} from './api/device/device.routes'
+import { createInitialAccessCode } from './api/auth/auth.service'
+import {authRoutes} from './api/auth/auth.routes'
+import { apiRoutes } from './api/api.routes'
 
 
 const app = new Hono()
@@ -16,10 +14,6 @@ createInitialAccessCode()
 
 app.use(logger())
 
-app.route('/public', publicRoutes)
-app.route('/auth', authRoutes)
-
-app.use('/api/*', jwt(jwtOptions))
 app.route('/api', apiRoutes)
 app.get('/', (c) => c.text('API running'))
 
@@ -39,4 +33,11 @@ app.onError((err, c) => {
   return c.json({ message: "Internal Server Error", status: 500 }, 500)
 })
 
-export default app
+
+Bun.serve({
+  port: validatedEnv.PORT,
+  hostname: validatedEnv.HOST,
+  fetch: app.fetch,
+})
+
+console.log(`Listening on http://${validatedEnv.HOST}:${validatedEnv.PORT}`)

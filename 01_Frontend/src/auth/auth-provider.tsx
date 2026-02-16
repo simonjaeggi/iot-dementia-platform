@@ -10,7 +10,7 @@ type ApiErrorResponse = { message?: string };
 
 async function fetchMe(): Promise<User | null> {
   try {
-    const res = await axiosInstance.get<User>("/auth/me");
+    const res = await axiosInstance.get<User>("/api/auth/me");
     return res.data;
   } catch {
     return null;
@@ -29,7 +29,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loginMutation = useMutation({
     mutationFn: async (vars: { email: string; password: string }) => {
-      await axiosInstance.post("/auth/login", vars);
+      await axiosInstance.post("/api/auth/login", vars);
     },
     onSuccess: async () => {
       toast.success("Login successful");
@@ -48,7 +48,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       accessCode: string;
       name: string;
     }) => {
-      await axiosInstance.post("/auth/register", vars);
+      await axiosInstance.post("/api/auth/register", vars);
     },
     onSuccess: async () => {
       toast.success("Registration successful");
@@ -62,7 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      await axiosInstance.post("/auth/logout");
+      await axiosInstance.post("/api/auth/logout");
     },
     onSuccess: async () => {
       toast.success("Logout successful");

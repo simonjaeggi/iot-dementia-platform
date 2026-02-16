@@ -1,14 +1,14 @@
 import { sign } from "hono/jwt";
 import { LoginUserDto } from "./zod/login-user.schema";
 import { RegisterUserDto } from "./zod/register-user.schema";
-import { accessCodes, users } from "../db/schema";
-import { db } from "../db/db";
-import { ExistingUser, NewUser } from "../db/types";
+import { accessCodes, users } from "../../db/schema";
+import { db } from "../../db/db";
+import { ExistingUser, NewUser } from "../../db/types";
 import { HTTPException } from "hono/http-exception";
 import { DatabaseError } from "pg";
 import { DrizzleQueryError } from "drizzle-orm/errors";
 import { and, eq, gt, isNull, or } from "drizzle-orm";
-import { validatedEnv } from "../env-validation";
+import { validatedEnv } from "../../env-validation";
 
 type JwtUser = Pick<ExistingUser, "id" | "email" | "role">;
 

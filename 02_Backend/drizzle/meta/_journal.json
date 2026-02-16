@@ -36,6 +36,34 @@
       "when": 1768905162457,
       "tag": "0004_simple_human_torch",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1770603919134,
+      "tag": "0005_square_professor_monster",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1770616804827,
+      "tag": "0006_tan_sauron",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1770616898166,
+      "tag": "0007_pale_storm",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1770634442507,
+      "tag": "0008_sturdy_invisible_woman",
+      "breakpoints": true
     }
   ]
 }
