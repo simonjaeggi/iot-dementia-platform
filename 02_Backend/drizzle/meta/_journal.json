@@ -64,6 +64,48 @@
       "when": 1770634442507,
       "tag": "0008_sturdy_invisible_woman",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1771241558918,
+      "tag": "0009_brave_pet_avengers",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1771822145478,
+      "tag": "0010_elite_magma",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1772426534958,
+      "tag": "0011_serious_hercules",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1772445659769,
+      "tag": "0012_complete_mother_askani",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1772973306535,
+      "tag": "0013_bright_rafael_vega",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1772977200000,
+      "tag": "0014_sturdy_subscription_detail_uniqueness",
+      "breakpoints": true
     }
   ]
 }

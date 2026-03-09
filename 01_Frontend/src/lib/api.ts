@@ -8,3 +8,14 @@ export const axiosInstance = axios.create({
     "Content-Type": "application/json",
   },
 })
+
+type ApiErrorResponse = { message?: string };
+
+
+export function getAxiosErrorMessage(error: unknown, fallback: string) {
+  return axios.isAxiosError<ApiErrorResponse>(error)
+    ? error.response?.data?.message || error.message || fallback
+    : error instanceof Error
+      ? error.message
+      : fallback;
+}

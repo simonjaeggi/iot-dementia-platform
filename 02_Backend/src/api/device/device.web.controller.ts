@@ -4,36 +4,63 @@ import { deleteDevice, getDevices, renameDevice } from "./device.web.service";
 import { FingerprintSchema } from "./zod/cert-fingerprint.schema";
 import { RenameDeviceSchema } from "./zod/device-rename.schema";
 
+/**
+ * Returns devices.
+ * @param c HTTP context
+ * @returns HTTP JSON response containing a list of devices.
+ */
 export async function devices(c: Context) {
   const devices = await getDevices();
 
   return c.json({ devices });
 }
 
+/**
+ * Renames the specified device.
+ * @param c HTTP context containing {fingerprint, name}
+ * @returns HTTP JSON response containing the renamed device.
+ * @throws {HTTPException} 400 payload invalid
+ * @throws {HTTPException} 404 device not found
+ */
 export async function rename(c: Context) {
-  //await renameDevice()
+  const body = await c.req.json().catch(() => null);
 
-  throw new HTTPException(501, { message: "Not implemented yet." });
-}
-
-export async function remove(c: Context) {
-  const payload = c.get("jwtPayload") as { role?: string };
-  if (payload?.role !== "admin") {
-    throw new HTTPException(403, { message: "Admin role required." });
-  }
-
-  const fingerprintResult = FingerprintSchema.safeParse(
-    c.req.param("fingerprint"),
-  );
-  if (!fingerprintResult.success) {
+  const dtoResult = RenameDeviceSchema.safeParse(body);
+  if (!dtoResult.success) {
     throw new HTTPException(400, {
-      message:
-        fingerprintResult.error.issues[0]?.message ?? "Invalid fingerprint.",
+      message: dtoResult.error.issues[0]?.message ?? "Invalid payload.",
     });
   }
 
-  const fingerprint = fingerprintResult.data;
-  const deletedDevice = await deleteDevice(fingerprint);
+  const dto = dtoResult.data;
+
+  const renamedDevice = await renameDevice(dto.fingerprint, dto);
+
+  if (!renamedDevice) {
+    throw new HTTPException(404, { message: "Device not found." });
+  }
+
+  return c.json(renamedDevice);
+}
+
+/**
+ * Removes the specified device.
+ * @param c HTTP context containing body {fingerprint}
+ * @returns HTTP JSON response containing the deleted device.
+ * @throws {HTTPException} 400 payload invalid
+ * @throws {HTTPException} 404 device not found
+ */
+export async function remove(c: Context) {
+  const body = await c.req.json().catch(() => null);
+  const fingerprintParse = FingerprintSchema.safeParse(body.fingerprint);
+
+  if (!fingerprintParse.success) {
+    throw new HTTPException(400, {
+      message: "Invalid device fingerprint.",
+    });
+  }
+
+  const deletedDevice = await deleteDevice(fingerprintParse.data);
 
   if (!deletedDevice) {
     throw new HTTPException(404, { message: "Device not found." });

@@ -2,10 +2,9 @@ import { Hono } from 'hono'
 import { logger } from 'hono/logger'
 import { HTTPException } from 'hono/http-exception'
 import { validatedEnv, validateEnv } from './env-validation'
-import {deviceRoutes} from './api/device/device.routes'
 import { createInitialAccessCode } from './api/auth/auth.service'
-import {authRoutes} from './api/auth/auth.routes'
 import { apiRoutes } from './api/api.routes'
+import { sendEmailNotifications } from './api/notification/notification.transport.service'
 
 
 const app = new Hono()
@@ -36,8 +35,16 @@ app.onError((err, c) => {
 
 Bun.serve({
   port: validatedEnv.PORT,
-  hostname: validatedEnv.HOST,
+  hostname: validatedEnv.INTERNAL_HOST,
   fetch: app.fetch,
 })
 
-console.log(`Listening on http://${validatedEnv.HOST}:${validatedEnv.PORT}`)
+setInterval(async () => {  
+  try {
+    await sendEmailNotifications()
+  } catch (error) {
+    console.error("Failed to process pending email notifications", error)
+  }
+}, 10000)
+
+console.log(`Listening on http://${validatedEnv.INTERNAL_HOST}:${validatedEnv.PORT}`)

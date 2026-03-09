@@ -1,5 +1,6 @@
 import z from "zod";
 import { AccessCodeSchema } from "./api/auth/zod/access-code.schema";
+import { EmailProviderSchema } from "./email/email.types";
 
 const envSchema = z.object({
   JWT_SECRET: z.string().min(1, "JWT_SECRET is required"),
@@ -11,9 +12,13 @@ const envSchema = z.object({
   POSTGRES_HOST: z.string().min(1, "POSTGRES_HOST is required"),
   DATABASE_URL: z.url("DATABASE_URL must be a valid URL"),
   INITIAL_ACCESS_CODE: AccessCodeSchema,
-  HOST: z.string().min(1, "Host is required."),
-  PORT: z.coerce.number().int().positive()
-
+  INTERNAL_HOST: z.string().min(1, "Internal host is required."),
+  EXTERNAL_HOST: z.string().min(1, "External host is required."),
+  PORT: z.coerce.number().int().positive(),
+  EMAIL_PROVIDER: EmailProviderSchema,
+  SENDGRID_API_KEY: z.string().min(1),
+  FROM_EMAIL: z.email(),
+  FROM_EMAIL_NAME: z.string().min(1),
 });
 
 type EnvType = z.infer<typeof envSchema>;
@@ -29,8 +34,13 @@ const env = {
   POSTGRES_HOST: process.env.POSTGRES_HOST,
   DATABASE_URL: process.env.DATABASE_URL,
   INITIAL_ACCESS_CODE: process.env.INITIAL_ACCESS_CODE,
-  HOST: process.env.HOST,
-  PORT: process.env.PORT
+  INTERNAL_HOST: process.env.INTERNAL_HOST,
+  EXTERNAL_HOST: process.env.EXTERNAL_HOST,
+  PORT: process.env.PORT,
+  EMAIL_PROVIDER: process.env.EMAIL_PROVIDER,
+  SENDGRID_API_KEY: process.env.SENDGRID_API_KEY,
+  FROM_EMAIL: process.env.FROM_EMAIL,
+  FROM_EMAIL_NAME: process.env.FROM_EMAIL_NAME,
 };
 
 export const validateEnv: ValidateEnvFn = () => {

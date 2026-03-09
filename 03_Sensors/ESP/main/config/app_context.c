@@ -5,6 +5,7 @@ static char wifi_ssid[WIFI_SSID_MAX_LEN];
 static char wifi_password[WIFI_PASSWORD_MAX_LEN];
 static char backend_host[BACKEND_HOSTNAME_MAX_LEN];
 static char device_name[DEVICE_NAME_MAX_LEN];
+static uint32_t boot_id = 0;
 
 char *app_context_wifi_ssid(void)
 {
@@ -44,4 +45,14 @@ char *app_context_device_name(void)
 size_t app_context_device_name_len(void)
 {
     return sizeof(device_name);
+}
+
+uint32_t app_context_boot_id(void)
+{
+    return boot_id;
+}
+
+void app_context_set_boot_id(uint32_t value)
+{
+    boot_id = value;
 }
