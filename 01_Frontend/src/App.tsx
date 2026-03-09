@@ -1,5 +1,7 @@
 import Dashboard from "./app/dashboard/dashboard";
 import Devices from "./app/devices/devices";
+import Events from "./app/events/events";
+import Settings from "./app/settings/settings";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { LoginForm } from "./components/login-form";
 import { RequireAuth } from "./auth/require-auth";
@@ -42,6 +44,22 @@ export default function App() {
         element={
           <RequireAuth>
             <Devices />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/events"
+        element={
+          <RequireAuth>
+            <Events />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          <RequireAuth>
+            <Settings />
           </RequireAuth>
         }
       />

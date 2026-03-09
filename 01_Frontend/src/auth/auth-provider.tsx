@@ -1,12 +1,10 @@
 import React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { axiosInstance } from "@/lib/api";
+import { axiosInstance, getAxiosErrorMessage } from "@/lib/api";
 import { AuthContext } from "./auth-context";
 import { toast } from "sonner";
-import axios from "axios";
 import type { User } from "./zod/user.schema";
 
-type ApiErrorResponse = { message?: string };
 
 async function fetchMe(): Promise<User | null> {
   try {
@@ -90,12 +88,4 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       {children}
     </AuthContext.Provider>
   );
-}
-
-function getAxiosErrorMessage(error: unknown, fallback: string) {
-  return axios.isAxiosError<ApiErrorResponse>(error)
-    ? error.response?.data?.message || error.message || fallback
-    : error instanceof Error
-      ? error.message
-      : fallback;
 }

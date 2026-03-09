@@ -1,80 +1,160 @@
 /**
  * @file nvs_helper.c
  * @brief This file contains NVS helper functions for simple read/write functionality.
- *
+ * Acts as a wrapper for esp idf nvs library to hide some complexity.
  */
 
 #include "nvs_flash.h"
 #include "nvs.h"
 #include "nvs_helper.h"
-#include "app_config.h"
+#include "esp_log.h"
+#define NVS_NAMESPACE "storage"
 
 static bool nvs_ready = false;
+static const char *TAG = "nvs_helper";
 
-/**
- * @brief Initialize NVS flash storage if not already initialized.
- *
- * Erases NVS in case of full pages or version mismatch.
- */
-
-void nvs_init(void)
+esp_err_t nvs_init(void)
 {
     if (nvs_ready)
-        return;
+        return ESP_OK;
 
     esp_err_t err = nvs_flash_init();
     if (err == ESP_ERR_NVS_NO_FREE_PAGES ||
         err == ESP_ERR_NVS_NEW_VERSION_FOUND)
     {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        ESP_ERROR_CHECK(nvs_flash_init());
+        esp_err_t erase_err = nvs_flash_erase();
+        if (erase_err != ESP_OK)
+        {
+            ESP_LOGE(TAG, "nvs_flash_erase failed: %s", esp_err_to_name(erase_err));
+            return ESP_FAIL;
+        }
+        err = nvs_flash_init();
+    }
+
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "nvs_flash_init failed: %s", esp_err_to_name(err));
+        return ESP_FAIL;
     }
 
     nvs_ready = true;
+    return ESP_OK;
 }
 
-/**
- * @brief Store a string in NVS.
- *
- * @param key   NVS key
- * @param value String to store
- * @return ESP_OK on success, error code otherwise
- */
 esp_err_t nvs_set_string(const char *key, const char *value)
 {
-    nvs_init();
+    if (!key || !value)
+    {
+        ESP_LOGE(TAG, "nvs_set_string invalid args");
+        return ESP_FAIL;
+    }
+    esp_err_t init_err = nvs_init();
+    if (init_err != ESP_OK)
+        return ESP_FAIL;
     nvs_handle_t h;
     esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &h);
     if (err != ESP_OK)
-        return err;
+    {
+        ESP_LOGE(TAG, "nvs_open failed: %s", esp_err_to_name(err));
+        return ESP_FAIL;
+    }
 
     err = nvs_set_str(h, key, value);
     if (err == ESP_OK)
         err = nvs_commit(h);
+    if (err != ESP_OK)
+        ESP_LOGE(TAG, "nvs_set/commit failed: %s", esp_err_to_name(err));
 
     nvs_close(h);
-    return err;
+    return (err == ESP_OK) ? ESP_OK : ESP_FAIL;
 }
 
-/**
- * @brief Retrieve a string value from NVS.
- *
- * @param key      NVS key
- * @param out      Buffer to receive the string
- * @param out_len  Size of output buffer
- * @return ESP_OK on success, error code otherwise
- */
 esp_err_t nvs_get_string(const char *key, char *out, size_t out_len)
 {
-    nvs_init();
+    if (!key || !out || out_len == 0)
+    {
+        ESP_LOGE(TAG, "nvs_get_string invalid args");
+        return ESP_FAIL;
+    }
+    out[0] = 0;
+    esp_err_t init_err = nvs_init();
+    if (init_err != ESP_OK)
+        return ESP_FAIL;
     nvs_handle_t h;
     esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READONLY, &h);
     if (err != ESP_OK)
-        return err;
+    {
+        ESP_LOGE(TAG, "nvs_open failed: %s", esp_err_to_name(err));
+        return ESP_FAIL;
+    }
 
     size_t len = out_len;
     err = nvs_get_str(h, key, out, &len);
 
     nvs_close(h);
-    return err;
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "nvs_get_str failed for key %s: %s", key, esp_err_to_name(err));
+        out[0] = 0;
+        return ESP_FAIL;
+    }
+    return ESP_OK;
+}
+
+esp_err_t nvs_set_int(const char *key, uint32_t value)
+{
+    if (!key)
+    {
+        ESP_LOGE(TAG, "nvs_set_int invalid args");
+        return ESP_FAIL;
+    }
+    esp_err_t init_err = nvs_init();
+    if (init_err != ESP_OK)
+        return ESP_FAIL;
+    nvs_handle_t h;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &h);
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "nvs_open failed: %s", esp_err_to_name(err));
+        return ESP_FAIL;
+    }
+
+    err = nvs_set_u32(h, key, value);
+    if (err == ESP_OK)
+        err = nvs_commit(h);
+    if (err != ESP_OK)
+        ESP_LOGE(TAG, "nvs_set_int/commit failed: %s", esp_err_to_name(err));
+
+    nvs_close(h);
+    return (err == ESP_OK) ? ESP_OK : ESP_FAIL;
+}
+
+esp_err_t nvs_get_int(const char *key, uint32_t *out)
+{
+    if (!key || !out)
+    {
+        ESP_LOGE(TAG, "nvs_get_int invalid args");
+        return ESP_FAIL;
+    }
+    *out = 0;
+    esp_err_t init_err = nvs_init();
+    if (init_err != ESP_OK)
+        return ESP_FAIL;
+    nvs_handle_t h;
+    esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READONLY, &h);
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "nvs_open failed: %s", esp_err_to_name(err));
+        return ESP_FAIL;
+    }
+
+    err = nvs_get_u32(h, key, out);
+    nvs_close(h);
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "nvs_get_int failed for key %s: %s", key, esp_err_to_name(err));
+        *out = 0;
+        return ESP_FAIL;
+    }
+    return ESP_OK;
 }

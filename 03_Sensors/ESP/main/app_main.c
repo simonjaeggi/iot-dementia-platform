@@ -1,16 +1,20 @@
 #include "app_config.h"
 #include "app_context.h"
 #include "backend_service.h"
-#include "device_config.h"
+#include "config_service.h"
 #include "esp_log.h"
-#include "provisioning_cert.h"
-#include "provisioning_https.h"
-#include "wifi_helper.h"
+#include "provisioning_service.h"
+#include "wifi_service.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "event_buffer.h"
+#include "esp_timer.h"
+
 #define TAG "main"
 
-
+/**
+ * @brief Reduce log levels of noisy libraries/modules
+ */
 static void reduce_log_noise(void)
 {
     esp_log_level_set("wifi", ESP_LOG_WARN);
@@ -21,6 +25,9 @@ static void reduce_log_noise(void)
     esp_log_level_set("esp_netif_handlers", ESP_LOG_WARN);
 }
 
+/**
+ * @brief Keep alive loop to ensure continuous serial output after main program exits.
+ */
 static void keep_alive_loop(void)
 {
     ESP_LOGI(TAG, "Main called keep alive loop, this will not exit.");
@@ -31,27 +38,22 @@ static void keep_alive_loop(void)
     }
 }
 
-
 void app_main(void)
 {
     ESP_LOGI(TAG, "app_main start");
     reduce_log_noise();
-    device_config_ensure_device_name();
+    esp_err_t cfg_err = config_service_set_context();
 
     // todo create dedicated provisioning service file to keep main flow as simple as possible
-    provisioning_cert(app_context_device_name(), PROV_CSR_OVERWRITE);
+    provisioning_service_cert_generate_csr(app_context_device_name(), PROV_CSR_OVERWRITE);
 
-    print_cert_from_nvs();
+    provisioning_service_cert_print_from_nvs();
 
-    esp_err_t cfg_err = read_prov_config(BACKEND_HOST_KEY, app_context_backend_host(), app_context_backend_host_len(),
-                                         WIFI_SSID_KEY, app_context_wifi_ssid(), app_context_wifi_ssid_len(),
-                                         WIFI_PASSWORD_KEY, app_context_wifi_password(), app_context_wifi_password_len());
-
-    bool cert_exists = provisioning_cert_exists();
-
+    bool cert_exists = provisioning_service_cert_exists();
+    // todo fix bug that AP does not stop or disconnect devices after provisioning.
     if (cert_exists && (PROV_HTTPS_FORCE_START || cfg_err != ESP_OK))
     {
-        esp_err_t err = provisioning_https_start();
+        esp_err_t err = provisioning_service_https_start();
         if (err != ESP_OK)
         {
             ESP_LOGE(TAG, "HTTPS provisioning failed to start: %s", esp_err_to_name(err));
@@ -65,7 +67,7 @@ void app_main(void)
 
     if (PROV_CERT_OVERWRITE || !cert_exists)
     {
-        read_and_store_cert();
+        provisioning_service_cert_read_and_store();
     }
     else
     {
@@ -78,20 +80,45 @@ void app_main(void)
         keep_alive_loop();
     }
 
-    esp_err_t werr = wifi_helper_init();
+    esp_err_t werr = wifi_service_init();
     if (werr != ESP_OK)
     {
         ESP_LOGE(TAG, "wifi init failed: %s", esp_err_to_name(werr));
         keep_alive_loop();
     }
 
-    werr = wifi_helper_connect(app_context_wifi_ssid(), app_context_wifi_password(), 5, true);
+    werr = spawn_wifi_connector_task();
     if (werr != ESP_OK)
     {
-        ESP_LOGE(TAG, "wifi connect failed: %s", esp_err_to_name(werr));
+        ESP_LOGE(TAG, "wifi connector task failed to start");
         keep_alive_loop();
     }
 
-    backend_service_start();
+    if (!spawn_backend_report_task())
+    {
+        ESP_LOGE(TAG, "Backend service start failed.");
+    }
+    init_event_buffer();
 
+    if (!spawn_event_send_task())
+    {
+        ESP_LOGE(TAG, "Failed to start event sender task");
+        return;
+    }
+    char bootEvent[MAX_EVENT_SIZE_BYTES];
+
+    int64_t uptime_ms = esp_timer_get_time() / 1000;
+    uint32_t boot_id = app_context_boot_id();
+
+    int len = snprintf(
+        bootEvent,
+        sizeof(bootEvent),
+        "{\"data\":{\"type\":\"systemBoot\",\"source\":{\"bootId\":%lu,\"uptimeMs\":%lld}}}",
+        boot_id,
+        (long long)uptime_ms);
+
+    if (len > 0 && len < sizeof(bootEvent))
+    {
+        event_buffer_push(bootEvent, len);
+    }
 }

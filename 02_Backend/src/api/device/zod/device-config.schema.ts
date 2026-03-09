@@ -14,4 +14,4 @@ export const DeviceConfigSchema = z.object({
   sensors: z.array(SensorSchema)  
 });
 
-export type DeviceConfig = z.infer<typeof DeviceConfigSchema>;
+export type DeviceConfigDto = z.infer<typeof DeviceConfigSchema>;

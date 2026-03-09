@@ -8,4 +8,4 @@ export const FingerprintSchema = z
     message: "Invalid fingerprint format",
   });
 
-export type Fingerprint = z.infer<typeof FingerprintSchema>;
+export type FingerprintDto = z.infer<typeof FingerprintSchema>;

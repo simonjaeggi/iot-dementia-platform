@@ -3,6 +3,8 @@ import { authRoutes } from "./auth/auth.routes";
 import { deviceRoutes, mtlsDeviceRoutes } from "./device/device.routes";
 import { db } from "../db/db";
 import { sql } from "drizzle-orm/sql";
+import { eventRoutes } from "./event/event.routes";
+import { notificationRoutes } from "./notification/notification.routes";
 
 export const apiRoutes = new Hono();
 apiRoutes.get("/health", async (c) => {
@@ -17,3 +19,5 @@ apiRoutes.get("/health", async (c) => {
 apiRoutes.route("/auth", authRoutes);
 apiRoutes.route("/device/web", deviceRoutes);
 apiRoutes.route("/device/mtls", mtlsDeviceRoutes);
+apiRoutes.route("/event", eventRoutes);
+apiRoutes.route("/notification", notificationRoutes);

@@ -1,3 +1,14 @@
 #pragma once
 
-void backend_service_start(void);
+/**
+ * @brief Creates new task that reports to the backend.
+ *
+ * @return true if task created successfully, false otherwise
+ */
+bool spawn_backend_report_task(void);
+/**
+ * @brief Creates a new task that empties the event buffer queue when network is available.
+ *
+ * @return true if task created successfully, false otherwise
+ */
+bool spawn_event_send_task(void);
