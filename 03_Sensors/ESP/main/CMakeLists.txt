@@ -18,7 +18,7 @@ idf_component_register(
         "storage"
         "events"
     EMBED_TXTFILES
-        "certs/server.pem"
+        "certs/server.crt"
         "certs/prov_server.crt"
         "certs/prov_server.key"
     REQUIRES mbedtls nvs_flash esp_event esp_netif esp_wifi esp_http_server esp_https_server esp_http_client esp_hw_support esp_ringbuf esp_timer

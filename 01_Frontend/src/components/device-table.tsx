@@ -3,9 +3,11 @@ import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  DropdownMenuCheckboxItem,
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -17,20 +19,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { IconCheck, IconDotsVertical, IconEdit } from "@tabler/icons-react";
+import { IconCheck, IconEdit } from "@tabler/icons-react";
+import { ChevronDown } from "lucide-react";
 import { axiosInstance, getAxiosErrorMessage } from "@/lib/api";
 import { toast } from "sonner";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "./ui/alert-dialog";
+
+type DeviceColumnId = "name" | "fingerprint" | "downtime" | "status";
 
 type Device = {
   name?: string;
@@ -47,8 +41,23 @@ type ApiDevice = {
   downSeconds: number | null;
 };
 
-export function DeviceTable() {
+export function DeviceTable({
+  selectedFingerprint,
+  onSelectDevice,
+}: {
+  selectedFingerprint?: string | null;
+  onSelectDevice?: (fingerprint: string) => void;
+}) {
   const queryClient = useQueryClient();
+  const [filterValue, setFilterValue] = useState("");
+  const [columnVisibility, setColumnVisibility] = useState<
+    Record<DeviceColumnId, boolean>
+  >({
+    name: true,
+    fingerprint: false,
+    downtime: true,
+    status: true,
+  });
   const [editingFingerprint, setEditingFingerprint] = useState<string | null>(
     null,
   );
@@ -78,20 +87,6 @@ export function DeviceTable() {
     },
   });
 
-  const deleteDeviceMutation = useMutation({
-    mutationFn: async (vars: { fingerprint: string }) => {
-      await axiosInstance.delete("/api/device/web/delete", { data: vars });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["devices"] });
-      toast.success("Device deleted successfully");
-    },
-    onError: (error: unknown) => {
-      const msg = getAxiosErrorMessage(error, "Failed to delete device.");
-      toast.error(msg);
-    },
-  });
-
   const timeoutSeconds = import.meta.env.VITE_DEVICE_TIMEOUT_SEC || 30;
   const devices: Device[] = (devicesQuery.data ?? []).map((device) => ({
     name: device.name || "Unnamed device",
@@ -102,6 +97,23 @@ export function DeviceTable() {
         ? "online"
         : "offline",
   }));
+  const filteredDevices = devices.filter((device) => {
+    const query = filterValue.trim().toLowerCase();
+
+    if (!query) {
+      return true;
+    }
+
+    return [
+      device.name,
+      device.fingerprint,
+      device.downtime,
+      device.status,
+    ]
+      .join(" ")
+      .toLowerCase()
+      .includes(query);
+  });
 
   function formatDowntime(seconds: number | null): string {
     if (seconds === null || seconds < 0) return "unknown";
@@ -136,154 +148,199 @@ export function DeviceTable() {
     setDraftName("");
   }
 
+  function toggleColumn(column: DeviceColumnId, visible: boolean) {
+    setColumnVisibility((current) => ({
+      ...current,
+      [column]: visible,
+    }));
+  }
+
+  function handleRowClick(
+    event: React.MouseEvent<HTMLTableRowElement>,
+    fingerprint: string,
+  ) {
+    const target = event.target as HTMLElement;
+
+    if (target.closest("[data-row-action='true']")) {
+      return;
+    }
+
+    onSelectDevice?.(fingerprint);
+  }
+
+  const visibleColumnCount = Math.max(
+    Object.values(columnVisibility).filter(Boolean).length,
+    1,
+  );
+
   return (
-    <div className="overflow-hidden rounded-lg border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Name</TableHead>
-            <TableHead>Fingerprint</TableHead>
-            <TableHead>Downtime</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
+    <div className="space-y-4">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <Input
+          placeholder="Filter devices..."
+          value={filterValue}
+          onChange={(event) => setFilterValue(event.target.value)}
+          className="w-full md:max-w-sm"
+        />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="w-full md:w-auto">
+              Columns
+              <ChevronDown className="size-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuCheckboxItem
+              checked={columnVisibility.name}
+              onCheckedChange={(value) => toggleColumn("name", Boolean(value))}
+            >
+              Name
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={columnVisibility.fingerprint}
+              onCheckedChange={(value) =>
+                toggleColumn("fingerprint", Boolean(value))
+              }
+            >
+              Fingerprint
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={columnVisibility.downtime}
+              onCheckedChange={(value) => toggleColumn("downtime", Boolean(value))}
+            >
+              Downtime
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
+              checked={columnVisibility.status}
+              onCheckedChange={(value) => toggleColumn("status", Boolean(value))}
+            >
+              Status
+            </DropdownMenuCheckboxItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      <div className="overflow-hidden rounded-lg border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              {columnVisibility.name ? <TableHead>Name</TableHead> : null}
+              {columnVisibility.fingerprint ? (
+                <TableHead>Fingerprint</TableHead>
+              ) : null}
+              {columnVisibility.downtime ? <TableHead>Downtime</TableHead> : null}
+              {columnVisibility.status ? <TableHead>Status</TableHead> : null}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
           {devicesQuery.isLoading ? (
             <TableRow>
-              <TableCell colSpan={5}>Loading devices...</TableCell>
+              <TableCell colSpan={visibleColumnCount}>
+                Loading devices...
+              </TableCell>
             </TableRow>
           ) : devicesQuery.isError ? (
             <TableRow>
-              <TableCell colSpan={5}>Failed to load devices.</TableCell>
+              <TableCell colSpan={visibleColumnCount}>
+                Failed to load devices.
+              </TableCell>
             </TableRow>
-          ) : devices.length === 0 ? (
+          ) : filteredDevices.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={5}>No devices found.</TableCell>
+              <TableCell colSpan={visibleColumnCount}>
+                No devices found.
+              </TableCell>
             </TableRow>
           ) : (
-            devices.map((device) => (
-              <TableRow key={device.fingerprint} className="group">
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    {editingFingerprint === device.fingerprint ? (
-                      <Input
-                        value={draftName}
-                        onChange={(event) => setDraftName(event.target.value)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") {
-                            saveName(device.fingerprint);
-                          }
-                          if (event.key === "Escape") {
-                            cancelNameEdit();
-                          }
-                        }}
-                        className="h-8 w-52"
-                        aria-label={`Device name for ${device.fingerprint}`}
-                      />
-                    ) : (
-                      <span>{device.name}</span>
-                    )}
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className={`h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted/60 ${
-                        editingFingerprint === device.fingerprint
-                          ? "opacity-100"
-                          : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
-                      }`}
-                      onClick={() =>
-                        editingFingerprint === device.fingerprint
-                          ? saveName(device.fingerprint)
-                          : startNameEdit(device)
-                      }
-                    >
+            filteredDevices.map((device) => (
+              <TableRow
+                key={device.fingerprint}
+                className={`group ${onSelectDevice ? "cursor-pointer" : ""}`}
+                data-state={
+                  device.fingerprint === selectedFingerprint ? "selected" : undefined
+                }
+                onClick={(event) => handleRowClick(event, device.fingerprint)}
+              >
+                {columnVisibility.name ? (
+                  <TableCell>
+                    <div className="flex items-center gap-2">
                       {editingFingerprint === device.fingerprint ? (
-                        <IconCheck className="size-4" />
+                        <Input
+                          data-row-action="true"
+                          value={draftName}
+                          onChange={(event) => setDraftName(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") {
+                              saveName(device.fingerprint);
+                            }
+                            if (event.key === "Escape") {
+                              cancelNameEdit();
+                            }
+                          }}
+                          className="h-8 w-52"
+                          aria-label={`Device name for ${device.fingerprint}`}
+                        />
                       ) : (
-                        <IconEdit className="size-4" />
+                        <span>{device.name}</span>
                       )}
-                      <span className="sr-only">
-                        {editingFingerprint === device.fingerprint
-                          ? "Save device name"
-                          : "Edit device name"}
-                      </span>
-                    </Button>
-                  </div>
-                </TableCell>
-                <TableCell
-                  className="max-w-[180px] truncate"
-                  title={device.fingerprint}
-                >
-                  {device.fingerprint}
-                </TableCell>
-                <TableCell>{device.downtime}</TableCell>
-                <TableCell>
-                  {device.status === "online" && (
-                    <Badge className="bg-green-600 text-white">Online</Badge>
-                  )}
-                  {device.status === "offline" && (
-                    <Badge variant="destructive">Offline</Badge>
-                  )}
-                </TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
                       <Button
+                        data-row-action="true"
                         size="icon"
                         variant="ghost"
-                        className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                        className={`h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted/60 ${
+                          editingFingerprint === device.fingerprint
+                            ? "opacity-100"
+                            : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                        }`}
+                        onClick={() =>
+                          editingFingerprint === device.fingerprint
+                            ? saveName(device.fingerprint)
+                            : startNameEdit(device)
+                        }
                       >
-                        <IconDotsVertical className="size-4" />
-                        <span className="sr-only">Open actions</span>
+                        {editingFingerprint === device.fingerprint ? (
+                          <IconCheck className="size-4" />
+                        ) : (
+                          <IconEdit className="size-4" />
+                        )}
+                        <span className="sr-only">
+                          {editingFingerprint === device.fingerprint
+                            ? "Save device name"
+                            : "Edit device name"}
+                        </span>
                       </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem>Details</DropdownMenuItem>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <DropdownMenuItem
-                            variant="destructive"
-                            onSelect={(e) => e.preventDefault()}
-                          >
-                            Forget
-                          </DropdownMenuItem>
-                        </AlertDialogTrigger>
-
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>
-                              Forget this device?
-                            </AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This removes the device from the platform. If the
-                              device is still active, it will reappear with a default name.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              disabled={deleteDeviceMutation.isPending}
-                              onClick={() =>
-                                deleteDeviceMutation.mutate({
-                                  fingerprint: device.fingerprint,
-                                })
-                              }
-                            >
-                              Forget
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
+                    </div>
+                  </TableCell>
+                ) : null}
+                {columnVisibility.fingerprint ? (
+                  <TableCell
+                    className="max-w-[180px] truncate"
+                    title={device.fingerprint}
+                  >
+                    {device.fingerprint}
+                  </TableCell>
+                ) : null}
+                {columnVisibility.downtime ? (
+                  <TableCell>{device.downtime}</TableCell>
+                ) : null}
+                {columnVisibility.status ? (
+                  <TableCell>
+                    {device.status === "online" && (
+                      <Badge className="bg-green-600 text-white">Online</Badge>
+                    )}
+                    {device.status === "offline" && (
+                      <Badge variant="destructive">Offline</Badge>
+                    )}
+                  </TableCell>
+                ) : null}
               </TableRow>
             ))
           )}
-        </TableBody>
-      </Table>
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }

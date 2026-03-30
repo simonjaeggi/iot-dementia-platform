@@ -38,6 +38,7 @@ export async function events(c: Context) {
   return c.json({ events });
 }
 
+
 /**
  * Returns an event.
  * @param c HTTP context containing event id param
@@ -45,8 +46,8 @@ export async function events(c: Context) {
  * @throws {HTTPException} 400 event id invalid
  * @throws {HTTPException} 404 event not found
  */
-export async function getEvent(c: Context) {
-  const idResult = EventIdSchema.safeParse(c.req.param("id"));
+export async function event(c: Context) { 
+  const idResult = EventIdSchema.safeParse(c.req.param("eventId"));
   if (!idResult.success) {
     throw new HTTPException(400, { message: "Invalid event id." });
   }

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "esp_err.h"
+
 /**
  * @brief Creates new task that reports to the backend.
  *
@@ -12,3 +14,5 @@ bool spawn_backend_report_task(void);
  * @return true if task created successfully, false otherwise
  */
 bool spawn_event_send_task(void);
+
+esp_err_t send_event(const char *payload, int payload_len);

@@ -37,7 +37,7 @@ export async function login(c: Context): Promise<{ ok: boolean }> {
   setCookie(c, "authCookie", token, {
     httpOnly: true,
     secure: true,
-    sameSite: "lax",
+    sameSite: "strict",
     path: "/",
   });
 

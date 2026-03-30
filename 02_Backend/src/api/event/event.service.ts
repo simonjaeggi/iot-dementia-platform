@@ -1,9 +1,10 @@
-import { asc, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "../../db/db";
 import { events } from "../../db/schema";
 import { EventDto } from "./zod/event.schema";
 import { EventIdDto } from "./zod/event-id.schema";
-import { mapEventToNotifications } from "../notification/notification.service";
+import { processStatelessNotifications } from "../notification/stateless/stateless-notification.service";
+import { updateDerivedStates } from "./derived-state/derived-state.service";
 
 export type StoredEvent = EventDto & { id: EventIdDto };
 
@@ -47,7 +48,7 @@ export async function getEventById(
 }
 
 /**
- * Creates a new event.
+ * Creates a new event. Triggers notification processing and derived state updates.
  * @param event Event payload
  * @returns {Promise<StoredEvent | null>} Created event with id, null otherwise.
  */
@@ -72,7 +73,8 @@ export async function createEvent(
     return null;
   }
 
-  await mapEventToNotifications(row.id, event);
+  await updateDerivedStates(row.id, event);
+  await processStatelessNotifications(row.id, event);
 
   return { id: row.id, ...(row.data as EventDto) };
 }

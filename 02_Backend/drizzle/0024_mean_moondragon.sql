@@ -1,0 +1,2 @@
+ALTER TABLE "access_codes" ADD COLUMN "is_initial_access_code" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "access_codes_single_initial_access_code_unique" ON "access_codes" USING btree ("is_initial_access_code") WHERE "access_codes"."is_initial_access_code" = true;

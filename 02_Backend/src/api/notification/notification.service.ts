@@ -1,123 +1,127 @@
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, gte, isNull } from "drizzle-orm";
 import { db } from "../../db/db";
 import {
   userEventSubscriptions,
   userNotificationTransport,
   userNotifications,
 } from "../../db/schema";
-import { EventDto } from "../event/zod/event.schema";
-import { CreateNotificationDto } from "./zod/notification-create.schema";
-import { CreateNotificationSubscriptionDto } from "./zod/notification-subscription-create.schema";
-import { GetUserNotificationsDto } from "./zod/notification-get-by-user.schema";
-import { NotificationSubscriptionId } from "./zod/notification-subscription-id.schema";
+import {
+  StoredNotification,
+  StoredNotificationTransport,
+  StoredUserEventSubscription,
+} from "../../db/types";
+import { CreateNotificationDto } from "./zod/create-notification.schema";
+import { CreateSubscriptionDto } from "./zod/subscription-create.schema";
+import { SubscriptionId } from "./zod/subscription-id.schema";
+import { SubscriptionType } from "./zod/subscription.types";
 
-type NotificationRecord = CreateNotificationDto & {
-  id: number;
-  createdAt: Date;
-  readAt: Date | null;
-};
-
-type UserSubscriptionMap = {
-  id: number;
-  userId: number;
-};
-
-export type StoredNotification = Omit<NotificationRecord, "userId">;
-export type StoredUserEventSubscription = Pick<
-  typeof userEventSubscriptions.$inferSelect,
-  "id" | "eventType" | "deliveryMethod" | "detailLevel"
->;
-
+//todo add pagination limiting.
+/**
+ * Returns all notifications for a given user
+ * @param userId
+ * @returns
+ */
 export async function getUserNotifications(
-  input: GetUserNotificationsDto,
+  userId: number,
 ): Promise<StoredNotification[]> {
   const rows = await db
-    .select({
-      id: userNotifications.id,
-      createdAt: userNotifications.createdAt,
-      title: userNotifications.title,
-      message: userNotifications.message,
-      triggerEventId: userNotifications.triggerEventId,
-      readAt: userNotifications.readAt,
-    })
+    .select()
     .from(userNotifications)
-    .where(eq(userNotifications.userId, input.userId))
+    .where(eq(userNotifications.userId, userId))
     .orderBy(desc(userNotifications.createdAt));
 
   return rows;
 }
 
+/**
+ * Returns the event subscriptions of a user from db.
+ * @param userId user id to match to db
+ * @returns {Promise<StoredUserEventSubscription[]>} List of event subscriptions
+ */
 export async function getUserEventSubscriptions(
   userId: number,
 ): Promise<StoredUserEventSubscription[]> {
   return db
-    .select({
-      id: userEventSubscriptions.id,
-      eventType: userEventSubscriptions.eventType,
-      deliveryMethod: userEventSubscriptions.deliveryMethod,
-      detailLevel: userEventSubscriptions.detailLevel,
-    })
+    .select()
     .from(userEventSubscriptions)
     .where(eq(userEventSubscriptions.userId, userId))
     .orderBy(desc(userEventSubscriptions.id));
 }
 
+/**
+ * Stores a user event subscription in db.
+ * Since subscriptions are scoped by userId, type, delivery method, detail level,
+ * and optional device fingerprint, it first checks whether a subscription with
+ * the same scope already exists. If yes, it updates that subscription.
+ * Otherwise, it creates a new one.
+ * @param userId user id
+ * @param subscription subscription to store  
+ * @returns {Promise<StoredUserEventSubscription | null>} Stored or updated subscription, null otherwise.
+ */
 export async function createUserEventSubscription(
   userId: number,
-  input: CreateNotificationSubscriptionDto,
+  subscription: CreateSubscriptionDto,
 ): Promise<StoredUserEventSubscription | null> {
-  const [createdSubscription] = await db
-    .insert(userEventSubscriptions)
-    .values({
-      userId,
-      eventType: input.eventType,
-      deliveryMethod: input.deliveryMethod,
-      detailLevel: input.detailLevel,
-    })
-    .onConflictDoNothing({
-      target: [
-        userEventSubscriptions.userId,
-        userEventSubscriptions.eventType,
-        userEventSubscriptions.deliveryMethod,
-        userEventSubscriptions.detailLevel,
-      ],
-    })
-    .returning({
-      id: userEventSubscriptions.id,
-      eventType: userEventSubscriptions.eventType,
-      deliveryMethod: userEventSubscriptions.deliveryMethod,
-      detailLevel: userEventSubscriptions.detailLevel,
-    });
+  return await db.transaction(async (tx) => {
+    const [existingSubscription] = await tx
+      .select({
+        id: userEventSubscriptions.id,
+      })
+      .from(userEventSubscriptions)
+      .where(
+        and(
+          eq(userEventSubscriptions.userId, userId),
+          eq(userEventSubscriptions.type, subscription.type),
+          eq(userEventSubscriptions.deliveryMethod, subscription.deliveryMethod),
+          eq(userEventSubscriptions.detailLevel, subscription.detailLevel),
+          subscription.deviceFingerprint
+            ? eq(
+                userEventSubscriptions.deviceCertFingerprintSha256,
+                subscription.deviceFingerprint,
+              )
+            : isNull(userEventSubscriptions.deviceCertFingerprintSha256),
+        ),
+      )
+      .limit(1);
 
-  if (createdSubscription) {
-    return createdSubscription;
-  }
+    if (existingSubscription) {
+      const [updatedSubscription] = await tx
+        .update(userEventSubscriptions)
+        .set({
+          thresholdConfig: subscription.thresholdConfig,
+        })
+        .where(eq(userEventSubscriptions.id, existingSubscription.id))
+        .returning();
 
-  const [existingSubscription] = await db
-    .select({
-      id: userEventSubscriptions.id,
-      eventType: userEventSubscriptions.eventType,
-      deliveryMethod: userEventSubscriptions.deliveryMethod,
-      detailLevel: userEventSubscriptions.detailLevel,
-    })
-    .from(userEventSubscriptions)
-    .where(
-      and(
-        eq(userEventSubscriptions.userId, userId),
-        eq(userEventSubscriptions.eventType, input.eventType),
-        eq(userEventSubscriptions.deliveryMethod, input.deliveryMethod),
-        eq(userEventSubscriptions.detailLevel, input.detailLevel),
-      ),
-    )
-    .limit(1);
+      return updatedSubscription ?? null;
+    }
 
-  return existingSubscription ?? null;
+    const [createdSubscription] = await tx
+      .insert(userEventSubscriptions)
+      .values({
+        userId,
+        type: subscription.type,
+        deviceCertFingerprintSha256: subscription.deviceFingerprint,
+        deliveryMethod: subscription.deliveryMethod,
+        detailLevel: subscription.detailLevel,
+        thresholdConfig: subscription.thresholdConfig,
+      })
+      .returning();
+
+    return createdSubscription ?? null;
+  });
 }
 
+/**
+ * Deletes a user event subscription from db, both user id and subscription id must match.
+ * @param userId user id
+ * @param subscriptionId subscription id
+ * @returns {Promise<StoredUserEventSubscription | null>} Deleted subscription, null on failure.
+ */
 export async function deleteUserEventSubscription(
   userId: number,
-  subscriptionId: NotificationSubscriptionId,
-): Promise<boolean> {
+  subscriptionId: SubscriptionId,
+): Promise<StoredUserEventSubscription | null> {
   const deleted = await db
     .delete(userEventSubscriptions)
     .where(
@@ -126,11 +130,16 @@ export async function deleteUserEventSubscription(
         eq(userEventSubscriptions.userId, userId),
       ),
     )
-    .returning({ id: userEventSubscriptions.id });
+    .returning();
 
-  return deleted.length > 0;
+  return deleted[0] ? deleted[0] : null;
 }
 
+/**
+ * Creates a new notification in db.
+ * @param input notification
+ * @returns {Promise<StoredNotification | null>} Created notification, null otherwise.
+ */
 export async function createNotification(
   input: CreateNotificationDto,
 ): Promise<StoredNotification | null> {
@@ -142,71 +151,76 @@ export async function createNotification(
       message: input.message,
       triggerEventId: input.triggerEventId,
     })
-    .returning({
-      id: userNotifications.id,
-      createdAt: userNotifications.createdAt,
-      userId: userNotifications.userId,
-      title: userNotifications.title,
-      message: userNotifications.message,
-      triggerEventId: userNotifications.triggerEventId,
-      readAt: userNotifications.readAt,
-    });
+    .returning();
 
   if (!created) return null;
-
-  const { userId: _userId, ...storedNotification } = created;
-  return storedNotification;
+  return created;
 }
 
-export async function mapEventToNotifications(
-  eventId: number,
-  event: EventDto,
-): Promise<void> {
-  const subscriptions = await db
-    .select({
-      id: userEventSubscriptions.id,
-      userId: userEventSubscriptions.userId,
-    })
-    .from(userEventSubscriptions)
-    .where(eq(userEventSubscriptions.eventType, event.type));
-
-  const subscriptionsByUser = new Map<number, UserSubscriptionMap[]>();
+/**
+ * Groups a list of subscriptions by their user id.
+ * @param subscriptions subscriptions list
+ * @returns {Map<number, StoredUserEventSubscription[]>} Mapping between user id to subscriptions list.
+ */
+export function groupSubscriptionsByUser(
+  subscriptions: StoredUserEventSubscription[],
+): Map<number, StoredUserEventSubscription[]> {
+  const subscriptionsByUser = new Map<number, StoredUserEventSubscription[]>();
 
   for (const subscription of subscriptions) {
-    const existing = subscriptionsByUser.get(subscription.userId);
-    if (existing) {
-      existing.push(subscription);
-    } else {
-      subscriptionsByUser.set(subscription.userId, [subscription]);
+    const existingSubscriptions = subscriptionsByUser.get(subscription.userId);
+    if (existingSubscriptions) {
+      existingSubscriptions.push(subscription);
+      continue;
     }
+    subscriptionsByUser.set(subscription.userId, [subscription]);
   }
 
-  for (const [userId, userSubscriptions] of subscriptionsByUser) {
-    const content = buildNotificationContent(event);
+  return subscriptionsByUser;
+}
 
+/**
+ * Creates a new notification for a list of users. The subscriptions responsible must be mapped to
+ * the user id to create the transport instances.
+ * @param subscriptionsByUser user id to subscription map
+ * @param content notification content
+ * @param triggerEventId id of triggering event
+ */
+export async function createNotificationsForUsers(
+  subscriptionsByUser: Map<number, StoredUserEventSubscription[]>,
+  content: { title: string; message: string },
+  triggerEventId: number | null,
+) {
+  for (const [userId, userSubscriptions] of subscriptionsByUser) {
     const notification = await createNotification({
       userId,
       title: content.title,
       message: content.message,
-      triggerEventId: eventId,
+      triggerEventId,
     });
 
-    if (notification) {
-      await createNotificationTransportInstances(
-        notification,
-        userSubscriptions,
-      );
+    if (!notification) {
+      continue;
     }
+
+    await createNotificationTransportInstances(notification.id, userSubscriptions);
   }
 }
 
+/**
+ * Marks a notification as read if it has not been marked yet. 
+ * User id and notification id must match.
+ * @param userId user id
+ * @param notificationId notification id 
+ * @returns {Promise<StoredNotification | null>} Updated notification on update success, null otherwise (including already marked). 
+ */
 export async function markNotificationRead(
   userId: number,
   notificationId: number,
-): Promise<boolean> {
+): Promise<StoredNotification | null> {
   const now = new Date();
 
-  const updated = await db
+  const rows = await db
     .update(userNotifications)
     .set({ readAt: now })
     .where(
@@ -216,69 +230,46 @@ export async function markNotificationRead(
         isNull(userNotifications.readAt),
       ),
     )
-    .returning({ id: userNotifications.id });
+    .returning();
 
-  return updated.length > 0;
+  return rows[0];
 }
 
-function buildNotificationContent(event: EventDto): {
-  title: string;
-  message: string;
-} {
-  const title = `Event: ${event.type}`;
-  let message = `A ${event.type} event was recorded at ${formatNotificationTimestamp(event.time)}.`;
-
-  const formattedDetails = formatEventDetails(event);
-
-  if (formattedDetails) {
-    message += `\n\n${formattedDetails}`;
-  }
-
-  return { title, message };
-}
-
-function formatNotificationTimestamp(date: Date): string {
-  return new Intl.DateTimeFormat("de-CH", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-    timeZone: "Europe/Zurich",
-    timeZoneName: "short",
-  }).format(date);
-}
-
-function formatEventDetails(event: EventDto): string | null {
-  switch (event.type) {
-    case "login":
-    case "register":
-      return `User ID: ${event.data.user.id} \nEmail: ${event.data.user.email}`
-    case "temperature":
-      return `Temperature: ${event.data.value} ${event.data.unit}`;
-    default:
-      if ("data" in event) {
-        return JSON.stringify(event.data, null, 2);
-      }
-
-      return null;
-  }
-}
-
+/**
+ * Creates a notification transport for every subscription of a notification.
+ * @param notificationId id of notification
+ * @param subscriptions list of subscriptions for the reference notification.
+ * @returns {Promise<StoredNotificationTransport[]>} List of stored notification transports.
+ */
 async function createNotificationTransportInstances(
-  notification: StoredNotification,
-  subscriptions: UserSubscriptionMap[],
-): Promise<void> {
+  notificationId: number,
+  subscriptions: StoredUserEventSubscription[],
+): Promise<StoredNotificationTransport[]> {
   if (subscriptions.length === 0) {
-    return;
+    return [];
   }
 
-  await db.insert(userNotificationTransport).values(
-    subscriptions.map((subscription) => ({
-      userNotificationId: notification.id,
-      userEventSubscriptionId: subscription.id,
-    })),
-  );
+  return await db
+    .insert(userNotificationTransport)
+    .values(
+      subscriptions.map((subscription) => ({
+        userNotificationId: notificationId,
+        userEventSubscriptionId: subscription.id,
+      })),
+    )
+    .returning();
+}
+
+/**
+ * Returns a list of user event subscriptions that match a given type.
+ * @param type type to match
+ */
+export async function getSubscriptionsByType(
+  type: SubscriptionType
+): Promise<StoredUserEventSubscription[]> {
+  const subscriptionRows = await db
+    .select()
+    .from(userEventSubscriptions)
+    .where(eq(userEventSubscriptions.type, type));
+  return subscriptionRows;
 }

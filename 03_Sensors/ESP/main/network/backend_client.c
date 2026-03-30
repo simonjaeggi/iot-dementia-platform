@@ -13,7 +13,7 @@
 
 #define TAG "backend"
 
-extern const unsigned char server_pem_start[] asm("_binary_server_pem_start");
+extern const unsigned char server_pem_start[] asm("_binary_server_crt_start");
 
 /**
  * @brief Sends an HTTPs request to a server, handling TLS and MTLS connections and memory cleanup. 

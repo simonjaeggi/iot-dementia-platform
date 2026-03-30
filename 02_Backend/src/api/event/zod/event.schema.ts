@@ -37,6 +37,9 @@ const EventUserSchema = z.object({
   email: z.email(),
 });
 
+export const InfrastructureStatusSchema = z.enum(["open", "closed"]);
+export type InfrastructureStatus = z.infer<typeof InfrastructureStatusSchema>;
+
 const IndoorBeaconSchema = z.object({
   id: z.string().min(1),
   signalStrengthDbm: z.coerce.number(),
@@ -45,7 +48,6 @@ const IndoorBeaconSchema = z.object({
 const IndoorLocationEvent = BaseEvent.extend({
   type: z.literal("indoorLocation"),
   data: z.object({
-    room: z.string(),
     beacons: z.array(IndoorBeaconSchema),
   }),
 });
@@ -85,7 +87,7 @@ const HumidityEvent = BaseEvent.extend({
 const InfrastructureEvent = BaseEvent.extend({
   type: z.literal("infrastructure"),
   data: z.object({
-    status: z.string(),
+    status: InfrastructureStatusSchema,
   }),
 });
 

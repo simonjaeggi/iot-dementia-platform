@@ -151,39 +151,15 @@ Configure Caddy
 sudo nano /etc/caddy/Caddyfile
 ```
 
-Add reverse proxy configuration (assuming backend at port `3000` for users, `8443` for devices and frontend at port `5173`)
+Add reverse proxy configuration (assuming backend at port `3000` for users, `8443` for devices, frontend at port `5173`, and ntfy at port `8444`.)
 ```caddyfile
-bscraspi.local {
-	tls /etc/caddy/certs/bscraspi.local.crt /etc/caddy/certs/bscraspi.local.key
-
-	@mtls_on_web path /api/device/mtls /api/device/mtls/*
-	handle @mtls_on_web {
-		respond "Not Found" 404
-	}
-
-	@web_api path /api/auth /api/auth/* /api/device/web /api/device/web/* /api/health /api/event /api/event/*
-	handle @web_api {
-		header {
-			Strict-Transport-Security "max-age=86400"
-			X-Content-Type-Options "nosniff"
-			Referrer-Policy "no-referrer"
-			X-Frame-Options "DENY"
-		}
-		reverse_proxy localhost:3000
-	}
-
-	@api_other path /api/*
-	handle @api_other {
-		respond "Not Found" 404
-	}
-
-	handle {
-		header {
-			Strict-Transport-Security "max-age=86400"
-			X-Content-Type-Options "nosniff"
-			Referrer-Policy "strict-origin-when-cross-origin"
-			X-Frame-Options "DENY"
-			Content-Security-Policy "
+bscraspi.burmese-economy.ts.net {
+	header {
+		Strict-Transport-Security "max-age=86400"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Frame-Options "DENY"
+		Content-Security-Policy "
 			default-src 'self';
 			base-uri 'self';
 			object-src 'none';
@@ -194,12 +170,55 @@ bscraspi.local {
 			style-src 'self';
 			img-src 'self' data:;
 			font-src 'self';
-			connect-src 'self' wss://bscraspi.local https://bscraspi.local;
+			connect-src 'self' wss://bscraspi.burmese-economy.ts.net https://bscraspi.burmese-economy.ts.net;
 			worker-src 'self';
 		"
-		}
+	}
+
+	@mtls_on_web path /api/device/mtls /api/device/mtls/*
+	handle @mtls_on_web {
+		respond "Not Found" 404
+	}
+
+	@web_api path /api/auth /api/auth/* /api/device/web /api/device/web/* /api/health /api/event /api/event/* /api/notification /api/notification/*
+	handle @web_api {
+		reverse_proxy localhost:3000
+	}
+
+	@api_other path /api/*
+	handle @api_other {
+		respond "Not Found" 404
+	}
+
+	handle {
 		reverse_proxy localhost:5173
 	}
+}
+
+bscraspi.burmese-economy.ts.net:8444 {
+	header {
+		Strict-Transport-Security "max-age=86400"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Frame-Options "DENY"
+		Content-Security-Policy "
+			default-src 'self';
+			base-uri 'self';
+			object-src 'none';
+			frame-ancestors 'none';
+			form-action 'self';
+
+			script-src 'self' 'unsafe-inline';
+			style-src 'self' 'unsafe-inline';
+			img-src 'self' data: blob:;
+			font-src 'self' data:;
+			connect-src 'self' https://bscraspi.burmese-economy.ts.net:8444 wss://bscraspi.burmese-economy.ts.net:8444;
+			manifest-src 'self';
+			worker-src 'self' blob:;
+		"
+	}
+
+	reverse_proxy 127.0.0.1:8080
 }
 
 bscraspi.local:8443 {
@@ -225,53 +244,6 @@ bscraspi.local:8443 {
 
 	handle {
 		respond "Not Found" 404
-	}
-}
-
-bscraspi.burmese-economy.ts.net {
-	@mtls_on_web path /api/device/mtls /api/device/mtls/*
-	handle @mtls_on_web {
-		respond "Not Found" 404
-	}
-
-	@web_api path /api/auth /api/auth/* /api/device/web /api/device/web/* /api/health /api/event /api/event/*
-	handle @web_api {
-		header {
-			Strict-Transport-Security "max-age=86400"
-			X-Content-Type-Options "nosniff"
-			Referrer-Policy "no-referrer"
-			X-Frame-Options "DENY"
-		}
-		reverse_proxy localhost:3000
-	}
-
-	@api_other path /api/*
-	handle @api_other {
-		respond "Not Found" 404
-	}
-
-	handle {
-		header {
-			Strict-Transport-Security "max-age=86400"
-			X-Content-Type-Options "nosniff"
-			Referrer-Policy "strict-origin-when-cross-origin"
-			X-Frame-Options "DENY"
-			Content-Security-Policy "
-                        default-src 'self';
-                        base-uri 'self';
-                        object-src 'none';
-                        frame-ancestors 'none';
-                        form-action 'self';
-
-                        script-src 'self';
-                        style-src 'self';
-                        img-src 'self' data:;
-                        font-src 'self';
-                        connect-src 'self' wss://bscraspi.burmese-economy.ts.net https://bscraspi.burmese-economy.ts.net;
-                        worker-src 'self';
-                "
-		}
-		reverse_proxy localhost:5173
 	}
 }
 ```

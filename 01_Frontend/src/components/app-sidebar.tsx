@@ -3,12 +3,12 @@ import {
   IconChartBar,
   IconDeviceIpadCode,
   IconHome,
+  IconInbox,
   IconMap,
-  IconSettings,
 } from "@tabler/icons-react"
 
 import { NavMain } from "@/components/nav-main"
-import { NavSecondary } from "@/components/nav-secondary"
+import { NavSettings } from "@/components/nav-settings"
 import { NavUser } from "@/components/nav-user"
 import {
   Sidebar,
@@ -39,17 +39,14 @@ const data = {
       icon: IconChartBar,
     },
     {
+      title: "Notification inbox",
+      url: "/notifications",
+      icon: IconInbox,
+    },
+    {
       title: "Map",
       url: "/map",
       icon: IconMap,
-    },
-  ],
-  
-  navSecondary: [
-    {
-      title: "Settings",
-      url: "/settings",
-      icon: IconSettings,
     },
   ],
   
@@ -75,7 +72,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
+        <NavSettings className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
         <NavUser />

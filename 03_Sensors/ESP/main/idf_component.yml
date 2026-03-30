@@ -1,0 +1,2 @@
+dependencies:
+  esp-idf-lib/si7021: "^1.0.8"
