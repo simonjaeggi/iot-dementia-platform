@@ -5,6 +5,7 @@ import { db } from "../db/db";
 import { sql } from "drizzle-orm/sql";
 import { eventRoutes } from "./event/event.routes";
 import { notificationRoutes } from "./notification/notification.routes";
+import { miscRoutes } from "./misc/misc.routes";
 
 export const apiRoutes = new Hono();
 apiRoutes.get("/health", async (c) => {
@@ -21,3 +22,4 @@ apiRoutes.route("/device/web", deviceRoutes);
 apiRoutes.route("/device/mtls", mtlsDeviceRoutes);
 apiRoutes.route("/event", eventRoutes);
 apiRoutes.route("/notification", notificationRoutes);
+apiRoutes.route("/misc", miscRoutes);

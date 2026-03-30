@@ -25,6 +25,21 @@ static char device_cert_pem[DEVICE_PEM_BUF_SIZE];
 static char device_key_pem[DEVICE_PEM_BUF_SIZE];
 static bool creds_loaded = false;
 
+esp_err_t send_event(const char *payload, int payload_len)
+{
+    if (!payload || payload_len <= 0 || payload_len >= MAX_EVENT_SIZE_BYTES)
+    {
+        return ESP_ERR_INVALID_SIZE;
+    }
+
+    if (!event_buffer_push(payload, payload_len))
+    {
+        return ESP_FAIL;
+    }
+
+    return ESP_OK;
+}
+
 static esp_err_t ensure_device_credentials(void)
 {
     if (creds_loaded)
@@ -69,7 +84,7 @@ static uint32_t get_config_version(void)
 /**
  * @brief Gets device config from backend and stores it.
  */
-//todo add explicit error handling. 
+//todo add explicit error handling.
 static void get_device_config(void)
 {
     char *config_json = (char *)calloc(1, DEVICE_CONFIG_JSON_BUF_SIZE);
@@ -125,6 +140,8 @@ static void get_device_config(void)
  */
 static void report_task(void *arg)
 {
+    (void)arg;
+
     while (true)
     {
         bool config_changed = false;

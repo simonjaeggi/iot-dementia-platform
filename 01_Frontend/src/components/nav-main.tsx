@@ -1,5 +1,5 @@
-import { type Icon } from "@tabler/icons-react"
-import { NavLink, useLocation } from "react-router-dom"
+import { type Icon } from "@tabler/icons-react";
+import { NavLink, useLocation } from "react-router-dom";
 
 import {
   SidebarGroup,
@@ -7,18 +7,18 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar"
+} from "@/components/ui/sidebar";
 
 export function NavMain({
   items,
 }: {
   items: {
-    title: string
-    url: string
-    icon?: Icon
-  }[]
+    title: string;
+    url: string;
+    icon?: Icon;
+  }[];
 }) {
-  const location = useLocation()
+  const location = useLocation();
 
   return (
     <SidebarGroup>
@@ -41,5 +41,5 @@ export function NavMain({
         </SidebarMenu>
       </SidebarGroupContent>
     </SidebarGroup>
-  )
+  );
 }

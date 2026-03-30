@@ -1,4 +1,7 @@
+import { sql } from "drizzle-orm";
 import {
+  boolean,
+  date,
   integer,
   pgTable,
   varchar,
@@ -14,9 +17,13 @@ import { DeviceConfigDto } from "../api/device/zod/device-config.schema";
 import { EventSchema } from "../api/event/zod/event.schema";
 import { userRoles } from "../api/auth/zod/user-roles.schema";
 import {
-  NotificationDeliveryMethodSchema,
-  NotificationDetailLevelSchema,
-} from "../api/notification/zod/notification-subscription.schema";
+  DeliveryMethodSchema,
+  DetailLevelSchema,
+} from "../api/notification/zod/delivery.schema";
+import type { SubscriptionType } from "../api/notification/zod/subscription.types";
+import { ThresholdConfig } from "../api/notification/zod/threshold.schema";
+import { eventTypeValues } from "../api/event/zod/event.types";
+import type { InfrastructureStatus } from "../api/event/zod/event.schema";
 
 export const userRoleEnum = pgEnum("user_role", userRoles);
 
@@ -26,6 +33,7 @@ export const users = pgTable("users", {
   email: varchar({ length: 255 }).notNull().unique(),
   passwordHash: text("password_hash").notNull(),
   role: userRoleEnum("role").notNull().default("user"),
+  pushId: text("push_id").notNull(),
 });
 
 export const refreshSessions = pgTable("refresh_sessions", {
@@ -42,22 +50,36 @@ export const refreshSessions = pgTable("refresh_sessions", {
     .defaultNow(),
 });
 
-export const accessCodes = pgTable("access_codes", {
-  code: varchar("code", { length: 14 }).primaryKey().notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  createdByUserId: integer("created_by_user_id").references(() => users.id, {
-    onDelete: "set null",
-  }),
-  redeemedAt: timestamp("redeemed_at", { withTimezone: true }),
-  redeemedByUserId: integer("redeemed_by_user_id").references(() => users.id, {
-    onDelete: "set null",
-  }),
-  redeemedByEmail: text("redeemed_by_email"),
-  revokedAt: timestamp("revoked_at", { withTimezone: true }),
-  expiresAt: timestamp("expires_at", { withTimezone: true }),
-});
+export const accessCodes = pgTable(
+  "access_codes",
+  {
+    code: varchar("code", { length: 14 }).primaryKey().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    createdByUserId: integer("created_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    redeemedAt: timestamp("redeemed_at", { withTimezone: true }),
+    redeemedByUserId: integer("redeemed_by_user_id").references(
+      () => users.id,
+      {
+        onDelete: "set null",
+      },
+    ),
+    redeemedByEmail: text("redeemed_by_email"),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    isInitialAccessCode: boolean("is_initial_access_code")
+      .notNull()
+      .default(false),
+  },
+  (table) => [
+    uniqueIndex("access_codes_single_initial_access_code_unique")
+      .on(table.isInitialAccessCode)
+      .where(sql`${table.isInitialAccessCode} = true`),
+  ],
+);
 
 export const deviceCertificates = pgTable("device_certificates", {
   id: integer().primaryKey().generatedAlwaysAsIdentity(),
@@ -84,16 +106,37 @@ export const devices = pgTable("devices", {
   config: jsonb("config").$type<DeviceConfigDto>().notNull(),
 });
 
-const eventTypeValues = EventSchema.options.map((eventSchema) => {
-  const typeLiteral = eventSchema.shape.type;
-  return typeLiteral.value;
-}) as [string, ...string[]];
+export const locationBeacons = pgTable(
+  "location_beacons",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    displayName: varchar("display_name", { length: 255 }).notNull(),
+    macIdentifier: varchar("mac_identifier", { length: 17 }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("location_beacons_mac_identifier_unique").on(
+      table.macIdentifier,
+    ),
+  ],
+);
+
+export const patients = pgTable("patients", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  surname: varchar("surname", { length: 255 }).notNull(),
+  lastname: varchar("lastname", { length: 255 }).notNull(),
+  birthday: date("birthday", { mode: "string" }).notNull(),
+});
 
 export const eventTypeEnum = pgEnum("event_type", eventTypeValues);
 
-const notificationDeliveryMethodValues =
-  NotificationDeliveryMethodSchema.options as [string, ...string[]];
-const notificationDetailLevelValues = NotificationDetailLevelSchema.options as [
+const notificationDeliveryMethodValues = DeliveryMethodSchema.options as [
+  string,
+  ...string[],
+];
+const notificationDetailLevelValues = DetailLevelSchema.options as [
   string,
   ...string[],
 ];
@@ -128,7 +171,7 @@ export const userNotifications = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
 
     triggerEventId: integer("trigger_event_id").references(() => events.id, {
-      onDelete: "set null", 
+      onDelete: "set null",
     }),
 
     title: varchar("title", { length: 128 }).notNull(),
@@ -152,21 +195,60 @@ export const userEventSubscriptions = pgTable(
       .references(() => users.id, {
         onDelete: "cascade",
       }),
-    eventType: eventTypeEnum("event_type").notNull(),
+    type: text("type").$type<SubscriptionType>().notNull(),
+    deviceCertFingerprintSha256: varchar("device_cert_fingerprint_sha256", {
+      length: 64,
+    }).references(() => devices.certFingerprintSha256, {
+      onDelete: "cascade",
+    }),
     deliveryMethod: notificationDeliveryMethodEnum("delivery_method").notNull(),
     detailLevel: notificationDetailLevelEnum("detail_level").notNull(),
+    thresholdConfig: jsonb("threshold_config").$type<ThresholdConfig>(),
   },
   (table) => [
     uniqueIndex("user_event_subscriptions_unique").on(
       table.userId,
-      table.eventType,
+      table.type,
       table.deliveryMethod,
       table.detailLevel,
+      table.deviceCertFingerprintSha256,
     ),
     index("user_event_subscriptions_user_event").on(
       table.userId,
-      table.eventType,
+      table.type,
+      table.deviceCertFingerprintSha256,
     ),
+  ],
+);
+
+export const infrastructureStates = pgTable(
+  "infrastructure_states",
+  {
+    deviceCertFingerprintSha256: varchar("device_cert_fingerprint_sha256", {
+      length: 64,
+    })
+      .primaryKey()
+      .references(() => devices.certFingerprintSha256, {
+        onDelete: "cascade",
+      }),
+    status: varchar("status", { length: 64 })
+      .$type<InfrastructureStatus>()
+      .notNull(),
+    statusSince: timestamp("status_since", { withTimezone: true }).notNull(),
+    lastObservedAt: timestamp("last_observed_at", {
+      withTimezone: true,
+    }).notNull(),
+    nextCheckAt: timestamp("next_check_at", { withTimezone: true }),
+    lastEventId: integer("last_event_id").references(() => events.id, {
+      onDelete: "set null",
+    }),
+  },
+  (table) => [
+    index("infrastructure_states_status_nextcheckat_idx").on(
+      table.status,
+      table.nextCheckAt,
+    ),
+    index("infrastructure_states_last_event_idx").on(table.lastEventId),
   ],
 );
 
@@ -178,6 +260,7 @@ export const userNotificationTransport = pgTable(
       .notNull()
       .defaultNow(),
     sentAt: timestamp("sent_at", { withTimezone: true }),
+    providerMessageId: text("provider_message_id"),
     userNotificationId: integer("user_notification_id")
       .notNull()
       .references(() => userNotifications.id, { onDelete: "cascade" }),

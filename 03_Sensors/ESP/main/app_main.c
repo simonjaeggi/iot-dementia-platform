@@ -4,6 +4,7 @@
 #include "config_service.h"
 #include "esp_log.h"
 #include "provisioning_service.h"
+#include "sensor_service.h"
 #include "wifi_service.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -23,6 +24,7 @@ static void reduce_log_noise(void)
     esp_log_level_set("pp", ESP_LOG_WARN);
     esp_log_level_set("net80211", ESP_LOG_WARN);
     esp_log_level_set("esp_netif_handlers", ESP_LOG_WARN);
+    esp_log_level_set("NimBLE", ESP_LOG_WARN);
 }
 
 /**
@@ -94,11 +96,18 @@ void app_main(void)
         keep_alive_loop();
     }
 
+    init_event_buffer();
+
     if (!spawn_backend_report_task())
     {
         ESP_LOGE(TAG, "Backend service start failed.");
     }
-    init_event_buffer();
+
+    if (!spawn_sensor_event_task())
+    {
+        ESP_LOGE(TAG, "Failed to start sensor event task");
+        return;
+    }
 
     if (!spawn_event_send_task())
     {
@@ -117,8 +126,8 @@ void app_main(void)
         boot_id,
         (long long)uptime_ms);
 
-    if (len > 0 && len < sizeof(bootEvent))
+    if (send_event(bootEvent, len) != ESP_OK)
     {
-        event_buffer_push(bootEvent, len);
+        ESP_LOGE(TAG, "Failed to queue boot event");
     }
 }

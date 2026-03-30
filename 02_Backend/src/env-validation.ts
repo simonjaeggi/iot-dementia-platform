@@ -1,6 +1,7 @@
 import z from "zod";
 import { AccessCodeSchema } from "./api/auth/zod/access-code.schema";
 import { EmailProviderSchema } from "./email/email.types";
+import { PushProviderSchema } from "./push/push.types";
 
 const envSchema = z.object({
   JWT_SECRET: z.string().min(1, "JWT_SECRET is required"),
@@ -19,6 +20,8 @@ const envSchema = z.object({
   SENDGRID_API_KEY: z.string().min(1),
   FROM_EMAIL: z.email(),
   FROM_EMAIL_NAME: z.string().min(1),
+  PUSH_PROVIDER: PushProviderSchema,
+  PUSH_PROVIDER_URL: z.url(),
 });
 
 type EnvType = z.infer<typeof envSchema>;
@@ -41,6 +44,8 @@ const env = {
   SENDGRID_API_KEY: process.env.SENDGRID_API_KEY,
   FROM_EMAIL: process.env.FROM_EMAIL,
   FROM_EMAIL_NAME: process.env.FROM_EMAIL_NAME,
+  PUSH_PROVIDER: process.env.PUSH_PROVIDER,
+  PUSH_PROVIDER_URL: process.env.PUSH_PROVIDER_URL,
 };
 
 export const validateEnv: ValidateEnvFn = () => {

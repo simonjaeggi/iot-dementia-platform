@@ -3,17 +3,13 @@ import { DeviceReportSchema } from "./zod/device-report.schema";
 import {
   ensureDeviceExistsAndUpdateLastSeen,
   isDesiredVersion,
-  isDeviceAuthorised,
   getDeviceConfig,
 } from "./device.mtls.service";
 import { HTTPException } from "hono/http-exception";
-import {
-  FingerprintDto,
-  FingerprintSchema,
-} from "./zod/cert-fingerprint.schema";
 import { EventSchema } from "../event/zod/event.schema";
 import { createEvent } from "../event/event.service";
 import z from "zod";
+import { getAuthorisedDeviceFingerprint } from "../auth/auth.middleware";
 
 // todo, this is fine as long as the object is parsed again later, but could lead to bugs if the backend does
 // not cleanly overwrite the sensor object.
@@ -28,7 +24,7 @@ const BodySchema = z.object({ data: z.looseObject({}) });
  * @returns JSON containing { ok, configChanged }
  */
 export async function report(c: Context) {
-  const fingerprint = await requireAuthorisedDeviceFingerprint(c);
+  const fingerprint = getAuthorisedDeviceFingerprint(c);
 
   const body = await c.req.json();
   const dtoResult = DeviceReportSchema.safeParse(body);
@@ -49,9 +45,15 @@ export async function report(c: Context) {
   });
 }
 
-// todo document
+/**
+ * Creates a new event based on sensor data. Attaches time and source details and stores the event in db.
+ * @param c HTTP context
+ * @returns Stored event from db
+ * @throws {HTTPException} 400 Payload invalid
+ * @throws {HTTPException} 500 Failed to store event to db
+ */
 export async function createDeviceEvent(c: Context) {
-  const fingerprint = await requireAuthorisedDeviceFingerprint(c);
+  const fingerprint = getAuthorisedDeviceFingerprint(c);
 
   const body = await c.req.json().catch(() => null);
   const bodyResult = BodySchema.safeParse(body);
@@ -70,7 +72,6 @@ export async function createDeviceEvent(c: Context) {
       deviceFingerprint: fingerprint,
     },
   };
-  console.log(eventPayload);
   const dtoResult = EventSchema.safeParse(eventPayload);
   if (!dtoResult.success) {
     throw new HTTPException(400, {
@@ -93,51 +94,10 @@ export async function createDeviceEvent(c: Context) {
  * @throws {HTTPException} 404 if no device config found.
  */
 export async function config(c: Context) {
-  const clientFingerprint = await requireAuthorisedDeviceFingerprint(c);
+  const clientFingerprint = getAuthorisedDeviceFingerprint(c);
   const config = await getDeviceConfig(clientFingerprint);
   if (!config) {
     throw new HTTPException(404, { message: "No config found for device." });
   }
   return c.json(config);
-}
-
-// todo consider putting this in auth middleware.
-/**
- * Checks HTTP context for device fingerprint in header.
- *
- * @param c HTTP context
- * @returns {Promise<Fingerprint>} Fingerprint extracted from header
- *
- * @throws {HTTPException} 400 if header is missing or invalid
- * @throws {HTTPException} 401 if device is not authorised
- */
-export async function requireAuthorisedDeviceFingerprint(
-  c: Context,
-): Promise<FingerprintDto> {
-  const headerFingerprint = c.req.header("X-Device-Fingerprint");
-
-  if (!headerFingerprint) {
-    throw new HTTPException(400, {
-      message: "Missing X-Device-Fingerprint header.",
-    });
-  }
-
-  const parsed = FingerprintSchema.safeParse(headerFingerprint);
-
-  if (!parsed.success) {
-    throw new HTTPException(400, {
-      message: parsed.error.issues[0]?.message ?? "Invalid fingerprint.",
-    });
-  }
-
-  const fingerprint = parsed.data;
-
-  const ok = await isDeviceAuthorised(fingerprint);
-  if (!ok) {
-    throw new HTTPException(401, {
-      message: "Device not authorised.",
-    });
-  }
-
-  return fingerprint;
 }

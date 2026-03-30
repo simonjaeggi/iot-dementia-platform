@@ -2,6 +2,18 @@ import { Context, MiddlewareHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { checkUserRole } from "./auth.service";
 import { JwtPayloadDto, JwtPayloadSchema } from "./zod/jwt-payload.schema";
+import {
+  FingerprintDto,
+  FingerprintSchema,
+} from "../device/zod/cert-fingerprint.schema";
+import { isDeviceAuthorised } from "../device/device.mtls.service";
+
+declare module "hono" {
+  interface ContextVariableMap {
+    authorisedDeviceFingerprint: FingerprintDto;
+  }
+}
+
 /**
  * Helper function that extracts the user id from JWT token.
  * @argument c HTTP request context
@@ -15,6 +27,21 @@ export function getUserIdFromJwt(c: Context): number {
   }
 
   return parsed.data.sub;
+}
+
+/**
+ * Helper function that extracts the authorised device fingerprint from context.
+ * @argument c HTTP request context
+ * @returns Device fingerprint
+ * @throws {HTTPException} 401 Invalid device context
+ */
+export function getAuthorisedDeviceFingerprint(c: Context): FingerprintDto {
+  const parsed = FingerprintSchema.safeParse(c.get("authorisedDeviceFingerprint"));
+  if (!parsed.success) {
+    throw new HTTPException(401, { message: "Invalid device context." });
+  }
+
+  return parsed.data;
 }
 
 /**
@@ -35,6 +62,44 @@ export function requireAdmin(): MiddlewareHandler {
       throw new HTTPException(403, { message: "Admin role required." });
     }
 
+    await next();
+  };
+}
+
+/**
+ * Ensures the request contains an authorised device fingerprint.
+ * @returns {MiddlewareHandler}
+ * @throws {HTTPException} 400 Missing or invalid fingerprint header
+ * @throws {HTTPException} 401 Device not authorised
+ */
+export function requireAuthorisedDeviceFingerprint(): MiddlewareHandler {
+  return async (c, next) => {
+    const headerFingerprint = c.req.header("X-Device-Fingerprint");
+
+    if (!headerFingerprint) {
+      throw new HTTPException(400, {
+        message: "Missing X-Device-Fingerprint header.",
+      });
+    }
+
+    const parsed = FingerprintSchema.safeParse(headerFingerprint);
+
+    if (!parsed.success) {
+      throw new HTTPException(400, {
+        message: "Invalid fingerprint.",
+      });
+    }
+
+    const fingerprint = parsed.data;
+
+    const ok = await isDeviceAuthorised(fingerprint);
+    if (!ok) {
+      throw new HTTPException(401, {
+        message: "Device not authorised.",
+      });
+    }
+
+    c.set("authorisedDeviceFingerprint", fingerprint);
     await next();
   };
 }

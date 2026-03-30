@@ -1,6 +1,11 @@
 import { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
-import { deleteDevice, getDevices, renameDevice } from "./device.web.service";
+import {
+  deleteDevice,
+  getDevice,
+  getDevices,
+  renameDevice,
+} from "./device.web.service";
 import { FingerprintSchema } from "./zod/cert-fingerprint.schema";
 import { RenameDeviceSchema } from "./zod/device-rename.schema";
 
@@ -13,6 +18,29 @@ export async function devices(c: Context) {
   const devices = await getDevices();
 
   return c.json({ devices });
+}
+
+/**
+ * Returns a single device.
+ * @param c HTTP context containing device fingerprint param
+ * @returns HTTP JSON response containing the device.
+ * @throws {HTTPException} 400 fingerprint invalid
+ * @throws {HTTPException} 404 device not found
+ */
+export async function device(c: Context) {
+  const fingerprintResult = FingerprintSchema.safeParse(c.req.param("fingerprint"));
+
+  if (!fingerprintResult.success) {
+    throw new HTTPException(400, { message: "Invalid device fingerprint." });
+  }
+
+  const existingDevice = await getDevice(fingerprintResult.data);
+
+  if (!existingDevice) {
+    throw new HTTPException(404, { message: "Device not found." });
+  }
+
+  return c.json(existingDevice);
 }
 
 /**

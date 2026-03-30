@@ -10,6 +10,28 @@ type ReturnDevice = ExistingDevice & {
 };
 
 /**
+ * Get device from db, compute downSeconds and return device.
+ *
+ * @returns {Promise<ReturnDevice | null>} Device if found, otherwise null.
+ */
+export async function getDevice(
+  fingerprint: FingerprintDto,
+): Promise<ReturnDevice | null> {
+  const row = await db
+    .select()
+    .from(devices)
+    .where(eq(devices.certFingerprintSha256, fingerprint))
+    .limit(1);
+  const device = row[0];
+
+  if (!device) {
+    return null;
+  }
+
+  return { ...device, downSeconds: getDownSeconds(device.lastSeen) };
+}
+
+/**
  * Get devices from db, compute downSeconds and return device list.
  *
  * @returns {Promise<ReturnDevice[]>} Device list
@@ -18,15 +40,8 @@ export async function getDevices(): Promise<ReturnDevice[]> {
   const rows = await db.select().from(devices);
   const now = Date.now();
 
-  return rows.map((row) => {
-    const lastSeenMs = row.lastSeen ? row.lastSeen.getTime() : null;
-
-    const downSeconds =
-      lastSeenMs === null || Number.isNaN(lastSeenMs)
-        ? null
-        : Math.max(0, Math.floor((now - lastSeenMs) / 1000));
-
-    return { ...row, downSeconds };
+  return rows.map((device) => {
+    return { ...device, downSeconds: getDownSeconds(device.lastSeen) };
   });
 }
 
@@ -63,4 +78,20 @@ export async function deleteDevice(
     .returning();
 
   return rows[0] ?? null;
+}
+
+/**
+ * Helper function that returns the seconds since a device was last seen.
+ * @param lastSeen Date object when device was last seen
+ * @returns Seconds since lastSeen, null if never seen.
+ */
+function getDownSeconds(lastSeen: Date | null): number | null {
+  const lastSeenMs = lastSeen ? lastSeen.getTime() : null;
+  const now = Date.now();
+
+  const downSeconds =
+    lastSeenMs === null || Number.isNaN(lastSeenMs)
+      ? null
+      : Math.max(0, Math.floor((now - lastSeenMs) / 1000));
+  return downSeconds;
 }

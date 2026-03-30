@@ -1,6 +1,7 @@
 import Dashboard from "./app/dashboard/dashboard";
 import Devices from "./app/devices/devices";
 import Events from "./app/events/events";
+import NotificationInbox from "./app/notification-inbox/notification-inbox";
 import Settings from "./app/settings/settings";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { LoginForm } from "./components/login-form";
@@ -52,6 +53,14 @@ export default function App() {
         element={
           <RequireAuth>
             <Events />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/notifications"
+        element={
+          <RequireAuth>
+            <NotificationInbox />
           </RequireAuth>
         }
       />

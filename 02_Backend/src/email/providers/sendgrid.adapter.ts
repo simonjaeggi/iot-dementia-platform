@@ -1,9 +1,11 @@
-import sgMail = require("@sendgrid/mail");
+const sgMail = require("@sendgrid/mail");
+
 import type {
   EmailMessage,
   EmailSendResult,
   EmailService,
 } from "../email.types";
+import { SendGridResponseSchema } from "../zod/sendgrid-response.schema";
 
 type SendGridEmailConfig = {
   apiKey: string;
@@ -11,11 +13,19 @@ type SendGridEmailConfig = {
   fromName: string;
 };
 
+/**
+ * Email service adapter for SendGrid.
+ */
 export class SendGridEmailAdapter implements EmailService {
   constructor(private readonly config: SendGridEmailConfig) {
     sgMail.setApiKey(config.apiKey);
   }
 
+  /**
+   * Sends an email through sendgrid.
+   * @param message Email message
+   * @returns provider, message id
+   */
   async send(message: EmailMessage): Promise<EmailSendResult> {
     const [response] = await sgMail.send({
       to: message.to,
@@ -28,9 +38,14 @@ export class SendGridEmailAdapter implements EmailService {
       html: message.html,
     });
 
+    const responseResult = SendGridResponseSchema.safeParse(response);
+    if (!responseResult.success) {
+      throw new Error("SendGrid returned illegal payload.");
+    }
+
     return {
       provider: "sendgrid",
-      messageId: response.headers["x-message-id"],
+      messageId: responseResult.data.headers["x-message-id"],
     };
   }
 }
