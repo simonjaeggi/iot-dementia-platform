@@ -4,7 +4,6 @@ import * as React from "react"
 import { IconChevronRight, IconSettings } from "@tabler/icons-react"
 import { NavLink, useLocation } from "react-router-dom"
 
-import { SETTINGS_PAGE_SECTION_IDS } from "@/app/settings/settings.config"
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -18,18 +17,26 @@ import {
 } from "@/components/ui/sidebar"
 import { cn } from "@/lib/utils"
 
+const SETTINGS_NAV_ITEMS = [
+  { title: "Notifications", path: "/settings/notifications" },
+  { title: "Location Beacons", path: "/settings/location-beacons" },
+  { title: "Users & Roles", path: "/settings/users" },
+  { title: "Access Codes", path: "/settings/access-codes" },
+  { title: "Patient Information", path: "/settings/patient" },
+]
+
 export function NavSettings({
   className,
 }: React.ComponentPropsWithoutRef<typeof SidebarGroup>) {
   const location = useLocation()
-  const isSettingsPath = location.pathname === "/settings"
-  const [isOpen, setIsOpen] = React.useState(isSettingsPath)
+  const isOnSettings = location.pathname.startsWith("/settings")
+  const [isOpen, setIsOpen] = React.useState(isOnSettings)
 
   React.useEffect(() => {
-    if (isSettingsPath) {
+    if (isOnSettings) {
       setIsOpen(true)
     }
-  }, [isSettingsPath])
+  }, [isOnSettings])
 
   return (
     <SidebarGroup className={className}>
@@ -39,7 +46,7 @@ export function NavSettings({
             <SidebarMenuButton
               asChild
               tooltip="Settings"
-              isActive={isSettingsPath}
+              isActive={location.pathname === "/settings"}
             >
               <NavLink to="/settings">
                 <IconSettings />
@@ -61,41 +68,19 @@ export function NavSettings({
             </SidebarMenuAction>
             {isOpen ? (
               <SidebarMenuSub>
-                {[
-                  {
-                    title: "Notifications",
-                    id: SETTINGS_PAGE_SECTION_IDS.notifications,
-                  },
-                  {
-                    title: "Location Beacons",
-                    id: SETTINGS_PAGE_SECTION_IDS.locationBeacons,
-                  },
-                  {
-                    title: "User & Roles",
-                    id: SETTINGS_PAGE_SECTION_IDS.userRoles,
-                  },
-                  {
-                    title: "Access Codes",
-                    id: SETTINGS_PAGE_SECTION_IDS.accessCodes,
-                  },
-                  {
-                    title: "Patient Information",
-                    id: SETTINGS_PAGE_SECTION_IDS.patientInformation,
-                  },
-                ].map((item) => {
-                  const hash = `#${item.id}`
-                  const isActive = isSettingsPath && location.hash === hash
+                {SETTINGS_NAV_ITEMS.map((item) => {
+                  const isActive = location.pathname === item.path
 
                   return (
-                    <SidebarMenuSubItem key={item.id}>
+                    <SidebarMenuSubItem key={item.path}>
                       <SidebarMenuSubButton
                         asChild
                         isActive={isActive}
                         size="sm"
                       >
-                        <a href={`/settings${hash}`}>
+                        <NavLink to={item.path}>
                           <span>{item.title}</span>
-                        </a>
+                        </NavLink>
                       </SidebarMenuSubButton>
                     </SidebarMenuSubItem>
                   )

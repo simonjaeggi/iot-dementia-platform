@@ -1,24 +1,103 @@
-import { eq } from "drizzle-orm";
+import { eq, gte, and, desc, count } from "drizzle-orm";
 import { db } from "../../db/db";
 import { events } from "../../db/schema";
 import { EventDto } from "./zod/event.schema";
 import { EventIdDto } from "./zod/event-id.schema";
 import { processStatelessNotifications } from "../notification/stateless/stateless-notification.service";
 import { updateDerivedStates } from "./derived-state/derived-state.service";
+import { ExistingEvent } from "../../db/types";
+import { EventType } from "./zod/event.types";
 
-export type StoredEvent = EventDto & { id: EventIdDto };
+export type PaginatedEvents = {
+  data: ExistingEvent[];
+  totalRows: number;
+  pageNumber: number;
+  pageSize: number;
+};
 
 /**
- * Returns all events.
- * @returns {Promise<StoredEvent[]>} Event list
+ * Returns paginated events.
+ * @param pageNumber current page that is requested
+ * @param pageSize requested size of page
+ * @param eventType event type to filter by
+ * @returns {Promise<PaginatedEvents>} list of events with pagination data
  */
-export async function getEvents(): Promise<StoredEvent[]> {
-  const rows = await db.select().from(events);
+export async function getEvents(
+  pageNumber: number,
+  pageSize: number,
+  eventType?: EventType,
+): Promise<PaginatedEvents> {
+  const safePageSize = Math.min(Math.max(1, pageSize), 100);
+  const where = eventType ? eq(events.type, eventType) : undefined;
+  const rows = await db
+    .select()
+    .from(events)
+    .where(where)
+    .orderBy(desc(events.time))
+    .offset((pageNumber - 1) * safePageSize)
+    .limit(safePageSize);
 
-  return rows.map((row) => ({
-    id: row.id,
-    ...(row.data as EventDto),
-  }));
+  const [totalRows] = await db
+    .select({ count: count() })
+    .from(events)
+    .where(where);
+
+  return {
+    data: rows,
+    totalRows: totalRows.count,
+    pageNumber,
+    pageSize: safePageSize,
+  };
+}
+
+/**
+ * Returns the events of the last x days.
+ * @param days x days
+ * @returns {Promise<ExistingEvent[]>} Event list
+ */
+export async function getEventsFromLastXDays(
+  days: number,
+): Promise<ExistingEvent[]> {
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - days);
+  const rows = await db
+    .select()
+    .from(events)
+    .where(gte(events.time, startDate));
+  return rows;
+}
+
+/**
+ * Returns all events of a given type.
+ * @param eventType type to retrieve
+ * @returns {Promise<ExistingEvent[]>} Event list
+ */
+export async function getEventsByType(
+  eventType: EventType,
+): Promise<ExistingEvent[]> {
+  const rows = db.select().from(events).where(eq(events.type, eventType));
+  return rows;
+}
+
+/**
+ * Returns all events of a given type in the last x seconds.
+ * @param eventType type to retrieve
+ * @param seconds amount of seconds to go back
+ * @returns {Promise<ExistingEvent[]>} Event list
+ */
+export async function getEventsByTypeAndLastXSeconds(
+  eventType: EventType,
+  seconds: number,
+): Promise<ExistingEvent[]> {
+  const cutoffTime = new Date(Date.now() - seconds * 1000);
+
+  const rows = await db
+    .select()
+    .from(events)
+    .where(and(eq(events.type, eventType), gte(events.time, cutoffTime)))
+    .orderBy(desc(events.time));
+
+  return rows as ExistingEvent[];
 }
 
 /**
@@ -28,8 +107,8 @@ export async function getEvents(): Promise<StoredEvent[]> {
  */
 export async function getEventById(
   id: EventIdDto,
-): Promise<StoredEvent | null> {
-  const rows = await db
+): Promise<ExistingEvent | null> {
+  const [row] = await db
     .select({
       id: events.id,
       type: events.type,
@@ -40,11 +119,10 @@ export async function getEventById(
     .where(eq(events.id, id))
     .limit(1);
 
-  if (!rows[0]) {
+  if (!row) {
     return null;
   }
-
-  return { id: rows[0].id, ...(rows[0].data as EventDto) };
+  return row;
 }
 
 /**
@@ -54,7 +132,7 @@ export async function getEventById(
  */
 export async function createEvent(
   event: EventDto,
-): Promise<StoredEvent | null> {
+): Promise<ExistingEvent | null> {
   const [row] = await db
     .insert(events)
     .values({
@@ -76,5 +154,5 @@ export async function createEvent(
   await updateDerivedStates(row.id, event);
   await processStatelessNotifications(row.id, event);
 
-  return { id: row.id, ...(row.data as EventDto) };
+  return row;
 }

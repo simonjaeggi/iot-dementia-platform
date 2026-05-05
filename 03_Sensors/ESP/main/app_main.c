@@ -3,18 +3,20 @@
 #include "backend_service.h"
 #include "config_service.h"
 #include "esp_log.h"
-#include "provisioning_service.h"
+#include "event_payload_helper.h"
+#include "identity_provisioning_service.h"
+#include "onsite_provisioning_service.h"
 #include "sensor_service.h"
 #include "wifi_service.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "event_buffer.h"
+#include "event_buffer_service.h"
 #include "esp_timer.h"
 
 #define TAG "main"
 
 /**
- * @brief Reduce log levels of noisy libraries/modules
+ * @brief Reduce log levels for noisy libraries and modules.
  */
 static void reduce_log_noise(void)
 {
@@ -25,10 +27,19 @@ static void reduce_log_noise(void)
     esp_log_level_set("net80211", ESP_LOG_WARN);
     esp_log_level_set("esp_netif_handlers", ESP_LOG_WARN);
     esp_log_level_set("NimBLE", ESP_LOG_WARN);
+    esp_log_level_set("sensor_service", ESP_LOG_WARN);
+    esp_log_level_set("event_buffer_service", ESP_LOG_WARN);
+    esp_log_level_set("config_service", ESP_LOG_WARN);
+    esp_log_level_set("prov_service", ESP_LOG_WARN);
+    esp_log_level_set("i2cdev", ESP_LOG_WARN);
+    esp_log_level_set("BLE_INIT", ESP_LOG_WARN);
+    esp_log_level_set("coexist", ESP_LOG_WARN);
+    esp_log_level_set("backend-client", ESP_LOG_WARN);
 }
 
 /**
- * @brief Keep alive loop to ensure continuous serial output after main program exits.
+ * @brief Keep the device alive so serial output continues after startup flow
+ * exits.
  */
 static void keep_alive_loop(void)
 {
@@ -44,18 +55,19 @@ void app_main(void)
 {
     ESP_LOGI(TAG, "app_main start");
     reduce_log_noise();
-    esp_err_t cfg_err = config_service_set_context();
+    esp_err_t cfg_err = config_set_context();
 
-    // todo create dedicated provisioning service file to keep main flow as simple as possible
-    provisioning_service_cert_generate_csr(app_context_device_name(), PROV_CSR_OVERWRITE);
+    generate_csr(app_context_device_name(), PROV_CSR_OVERWRITE);
 
-    provisioning_service_cert_print_from_nvs();
-
-    bool cert_exists = provisioning_service_cert_exists();
-    // todo fix bug that AP does not stop or disconnect devices after provisioning.
-    if (cert_exists && (PROV_HTTPS_FORCE_START || cfg_err != ESP_OK))
+    if (PROV_PRINT_NVS_CERT_ON_BOOT)
     {
-        esp_err_t err = provisioning_service_https_start();
+        print_cert_from_nvs();
+    }
+
+    bool has_cert = cert_exists();
+    if (has_cert && (PROV_HTTPS_FORCE_START || cfg_err != ESP_OK))
+    {
+        esp_err_t err = start_https_and_softap();
         if (err != ESP_OK)
         {
             ESP_LOGE(TAG, "HTTPS provisioning failed to start: %s", esp_err_to_name(err));
@@ -64,12 +76,19 @@ void app_main(void)
     }
     else
     {
-        ESP_LOGI(TAG, "HTTPS provisioning skipped. Cert exists and force provisioning off.");
+        if (!has_cert)
+        {
+            ESP_LOGI(TAG, "HTTPS provisioning not started because no device certificate is stored yet.");
+        }
+        else
+        {
+            ESP_LOGI(TAG, "HTTPS provisioning not started because a device certificate already exists and force start is off.");
+        }
     }
 
-    if (PROV_CERT_OVERWRITE || !cert_exists)
+    if (PROV_CERT_OVERWRITE || !has_cert)
     {
-        provisioning_service_cert_read_and_store();
+        serial_read_and_store_cert();
     }
     else
     {
@@ -82,7 +101,8 @@ void app_main(void)
         keep_alive_loop();
     }
 
-    esp_err_t werr = wifi_service_init();
+    esp_err_t err = ESP_OK;
+    esp_err_t werr = wifi_init();
     if (werr != ESP_OK)
     {
         ESP_LOGE(TAG, "wifi init failed: %s", esp_err_to_name(werr));
@@ -98,35 +118,41 @@ void app_main(void)
 
     init_event_buffer();
 
-    if (!spawn_backend_report_task())
+    err = spawn_backend_report_task();
+    if (err != ESP_OK)
     {
-        ESP_LOGE(TAG, "Backend service start failed.");
+        ESP_LOGE(TAG, "Backend service start failed: %s", esp_err_to_name(err));
+        keep_alive_loop();
     }
 
-    if (!spawn_sensor_event_task())
+    err = spawn_sensor_event_task();
+    if (err != ESP_OK)
     {
-        ESP_LOGE(TAG, "Failed to start sensor event task");
-        return;
+        ESP_LOGE(TAG, "Failed to start sensor event task: %s", esp_err_to_name(err));
+        keep_alive_loop();
     }
 
-    if (!spawn_event_send_task())
+    err = spawn_event_send_task();
+    if (err != ESP_OK)
     {
-        ESP_LOGE(TAG, "Failed to start event sender task");
-        return;
+        ESP_LOGE(TAG, "Failed to start event sender task: %s", esp_err_to_name(err));
+        keep_alive_loop();
     }
-    char bootEvent[MAX_EVENT_SIZE_BYTES];
+    char boot_event[MAX_EVENT_SIZE_BYTES];
+    size_t payload_len = 0;
+    err = event_payload_build_system_boot(
+        boot_event,
+        sizeof(boot_event),
+        app_context_boot_id(),
+        esp_timer_get_time() / 1000,
+        &payload_len);
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "Failed to build boot event payload: %s", esp_err_to_name(err));
+        keep_alive_loop();
+    }
 
-    int64_t uptime_ms = esp_timer_get_time() / 1000;
-    uint32_t boot_id = app_context_boot_id();
-
-    int len = snprintf(
-        bootEvent,
-        sizeof(bootEvent),
-        "{\"data\":{\"type\":\"systemBoot\",\"source\":{\"bootId\":%lu,\"uptimeMs\":%lld}}}",
-        boot_id,
-        (long long)uptime_ms);
-
-    if (send_event(bootEvent, len) != ESP_OK)
+    if (send_event(boot_event, (int)payload_len) != ESP_OK)
     {
         ESP_LOGE(TAG, "Failed to queue boot event");
     }

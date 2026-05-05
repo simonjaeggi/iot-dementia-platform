@@ -1,9 +1,16 @@
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { db } from "../../db/db";
-import { devices } from "../../db/schema";
+import { devices, locationBeacons } from "../../db/schema";
 import { ExistingDevice } from "../../db/types";
 import { FingerprintDto } from "./zod/cert-fingerprint.schema";
 import { RenameDeviceDto } from "./zod/device-rename.schema";
+import { DeviceTypeDto, SetDeviceTypeDto } from "./zod/device-type.schema";
+import {
+  environmentStationConfigTemplate,
+  infrastructureStationConfigTemplate,
+  personStationConfigTemplate,
+} from "./device-config.templates";
+import { DeviceConfigDto } from "./zod/device-config.schema";
 
 type ReturnDevice = ExistingDevice & {
   downSeconds: number | null;
@@ -65,6 +72,40 @@ export async function renameDevice(
 }
 
 /**
+ * Sets a device config from a station template and resolves beacon MACs for indoor location sensors.
+ * @param fingerprint Device cert fingerprint to match devices table
+ * @param input Station template payload
+ * @returns {Promise<ExistingDevice | null>} Updated device if found, null otherwise.
+ */
+export async function setDeviceType(
+  fingerprint: FingerprintDto,
+  input: SetDeviceTypeDto,
+): Promise<ExistingDevice | null> {
+  return db.transaction(async (tx) => {
+    const [existingDevice] = await tx
+      .select({ config: devices.config })
+      .from(devices)
+      .where(eq(devices.certFingerprintSha256, fingerprint))
+      .limit(1);
+
+    if (!existingDevice) {
+      return null;
+    }
+
+    const config = await buildDeviceConfigForType(input.deviceType);
+    config.version = existingDevice.config.version + 1;
+
+    const rows = await tx
+      .update(devices)
+      .set({ config })
+      .where(eq(devices.certFingerprintSha256, fingerprint))
+      .returning();
+
+    return rows[0] ?? null;
+  });
+}
+
+/**
  * Deletes a device from db and returns the deleted object.
  * @param fingerprint Device cert fingerprint to match devices table
  * @returns {Promise<ExistingDevice | null>} Device if found and deleted, null otherwise.
@@ -94,4 +135,47 @@ function getDownSeconds(lastSeen: Date | null): number | null {
       ? null
       : Math.max(0, Math.floor((now - lastSeenMs) / 1000));
   return downSeconds;
+}
+
+async function buildDeviceConfigForType(
+  deviceType: DeviceTypeDto,
+): Promise<DeviceConfigDto> {
+  let config: DeviceConfigDto;
+
+  switch (deviceType) {
+    case "environmentStation":
+      config = structuredClone(environmentStationConfigTemplate);
+      break;
+    case "infrastructureStation":
+      config = structuredClone(infrastructureStationConfigTemplate);
+      break;
+    case "personStation":
+      config = structuredClone(personStationConfigTemplate);
+      break;
+  }
+
+  if (!config.sensors.some((sensor) => sensor.type === "indoorLocation")) {
+    return config;
+  }
+
+  const beacons = await db
+    .select({ macIdentifier: locationBeacons.macIdentifier })
+    .from(locationBeacons)
+    .orderBy(asc(locationBeacons.displayName), asc(locationBeacons.id));
+
+  const beaconMacAddresses = beacons.map((beacon) => beacon.macIdentifier);
+
+  return {
+    ...config,
+    sensors: config.sensors.map((sensor) => {
+      if (sensor.type !== "indoorLocation") {
+        return sensor;
+      }
+
+      return {
+        ...sensor,
+        beaconMacAddresses,
+      };
+    }),
+  };
 }

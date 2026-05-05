@@ -2,11 +2,16 @@ import Dashboard from "./app/dashboard/dashboard";
 import Devices from "./app/devices/devices";
 import Events from "./app/events/events";
 import NotificationInbox from "./app/notification-inbox/notification-inbox";
-import Settings from "./app/settings/settings";
+import { SettingsOverview } from "./app/settings/settings-overview";
+import { Notifications } from "./app/settings/notifications/notifications";
+import { LocationBeacons } from "./app/settings/location-beacons/location-beacons";
+import { UserRoles } from "./app/settings/user-roles/user-roles";
+import { AccessCodes } from "./app/settings/access-codes/access-codes";
+import { Patient } from "./app/settings/patient/patient";
 import { Routes, Route, Navigate } from "react-router-dom";
-import { LoginForm } from "./components/login-form";
+import { LoginForm } from "./app/auth/login-form";
 import { RequireAuth } from "./auth/require-auth";
-import { RegistrationForm } from "./components/registration-form";
+import { RegistrationForm } from "./app/auth/registration-form";
 
 export default function App() {
   return (
@@ -68,7 +73,47 @@ export default function App() {
         path="/settings"
         element={
           <RequireAuth>
-            <Settings />
+            <SettingsOverview />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/settings/notifications"
+        element={
+          <RequireAuth>
+            <Notifications />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/settings/location-beacons"
+        element={
+          <RequireAuth>
+            <LocationBeacons />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/settings/users"
+        element={
+          <RequireAuth>
+            <UserRoles />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/settings/access-codes"
+        element={
+          <RequireAuth>
+            <AccessCodes />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/settings/patient"
+        element={
+          <RequireAuth>
+            <Patient />
           </RequireAuth>
         }
       />

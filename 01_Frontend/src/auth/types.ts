@@ -1,4 +1,4 @@
-import type { User } from "./zod/user.schema"
+import type { User } from "@/lib/api"
 
 export type AuthContextValue = {
   user: User | null

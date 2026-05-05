@@ -2,17 +2,9 @@ import { db } from "../../db/db";
 import { deviceCertificates, devices } from "../../db/schema";
 import { NewDevice } from "../../db/types";
 import { FingerprintDto } from "./zod/cert-fingerprint.schema";
-import { DeviceConfigDto } from "./zod/device-config.schema";
+import { emptyDeviceConfigTemplate } from "./device-config.templates";
 import { and, eq, isNull } from "drizzle-orm";
-
-/**
- * Default configuration applied when a device reports for the first time.
- */
-const defaultConf: DeviceConfigDto = {
-  version: 1,
-  publishIntervalMs: 30000,
-  sensors: [],
-};
+import { DeviceConfigDto } from "./zod/device-config.schema";
 
 /**
  * Ensures the device exists and updates lastSeen.
@@ -29,7 +21,7 @@ export async function ensureDeviceExistsAndUpdateLastSeen(
     certFingerprintSha256: fingerprint,
     createdAt: now,
     lastSeen: now,
-    config: defaultConf,
+    config: emptyDeviceConfigTemplate,
   };
 
   await db.insert(devices).values(device).onConflictDoUpdate({

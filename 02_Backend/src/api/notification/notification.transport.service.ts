@@ -6,7 +6,7 @@ import {
   userNotifications,
   users,
 } from "../../db/schema";
-import { StoredNotificationTransport } from "../../db/types";
+import { ExistingNotificationTransport } from "../../db/types";
 import { emailService } from "../../email/email.service";
 import { renderGenericEmailTemplate } from "../../email/templates/generic.template";
 import { validatedEnv } from "../../env-validation";
@@ -191,12 +191,12 @@ async function sendPushNotification(
  * Marks a notification transport (message) as sent in db.
  * @param transportId Notification transport id.
  * @param providerMessageId Message id from message provider.
- * @returns {Promise<StoredNotificationTransport>} Changed db object on success, null otherwise.
+ * @returns {Promise<ExistingNotificationTransport>} Changed db object on success, null otherwise.
  */
 async function markNotificationTransportSent(
   transportId: number,
   providerMessageId?: string,
-): Promise<StoredNotificationTransport> {
+): Promise<ExistingNotificationTransport> {
   const rows = await db
     .update(userNotificationTransport)
     .set({

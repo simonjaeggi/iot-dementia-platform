@@ -28,9 +28,36 @@ export async function logUserAuditEvent(
     },
   };
 
-  // todo not sure how I should handle failed events yet.
+  
   const created = await createEvent(event);
   if (!created) {
     console.error(`Failed to create ${type} event.`);
+  }
+}
+
+/**
+ * Log a basic user audit event.
+ * @param type Audit event type
+ * @param user User info
+ */
+export async function logUpdateAvailableEvent(
+  version: string,
+): Promise<void> {
+  const event: EventDto = {
+    type: "updateAvailable",
+    time: new Date(),
+    source: {
+      kind: "backend",
+      service: "update"
+    },
+    data: {
+      version
+    },
+  };
+
+  
+  const created = await createEvent(event);
+  if (!created) {
+    console.error(`Failed to create UpdateAvailable event.`);
   }
 }

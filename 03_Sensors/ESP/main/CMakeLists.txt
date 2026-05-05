@@ -6,10 +6,20 @@ idf_component_register(
         "network/backend_client.c"
         "network/backend_service.c"
         "network/wifi_service.c"
-        "provisioning/provisioning_service.c"
+        "provisioning/identity_provisioning_service.c"
+        "provisioning/onsite_provisioning_service.c"
         "provisioning/cert_helper.c"
         "storage/nvs_helper.c"
-        "events/event_buffer.c"
+        "events/event_buffer_service.c"
+        "events/event_payload_helper.c"
+        "sensors/indoor_location_sensor.c"
+        "sensors/light_intensity_sensor.c"
+        "sensors/infrastructure_status_sensor.c"
+        "sensors/accel_sensor.c"
+        "sensors/gnss_sensor.c"
+        "sensors/mic_sensor.c"
+        "sensors/temperature_humidity_sensor.c"
+        "sensors/sensor_service.c"
     INCLUDE_DIRS
         "."
         "config"
@@ -17,9 +27,10 @@ idf_component_register(
         "provisioning"
         "storage"
         "events"
+        "sensors"
     EMBED_TXTFILES
         "certs/server.crt"
         "certs/prov_server.crt"
         "certs/prov_server.key"
-    REQUIRES mbedtls nvs_flash esp_event esp_netif esp_wifi esp_http_server esp_https_server esp_http_client esp_hw_support esp_ringbuf esp_timer
+    REQUIRES mbedtls nvs_flash esp_event esp_netif esp_wifi esp_http_server esp_https_server esp_http_client esp_hw_support esp_ringbuf esp_timer si7021 bh1750 bt driver
 )

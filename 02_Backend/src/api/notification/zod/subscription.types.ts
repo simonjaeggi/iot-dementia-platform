@@ -1,10 +1,12 @@
 import { z } from "zod";
 
-export const statelessSubscriptionTypeValues = [
+const statelessSubscriptionTypeValues = [
   "temperature",
   "humidity",
+  "lightIntensity",
   "noiseLevel",
   "updateAvailable",
+  "corruptDeviceConfig",
   "systemBoot",
   "login",
   "register",
@@ -13,16 +15,24 @@ export const statelessSubscriptionTypeValues = [
   "accessCode",
 ] as const;
 
-export const statefulSubscriptionTypeValues = [
+const statefulSubscriptionTypeValues = [
   "outdoorGeofenceCrossed",
+  "fallDetection",
+  "panicDetection",
+  "sameRoomTooLong",
   "infrastructureStatusTooLong",
 ] as const;
 
-export const deviceScopedSubscriptionTypeValues = [
+const deviceScopedSubscriptionTypeValues = [
   "temperature",
   "humidity",
+  "lightIntensity",
   "noiseLevel",
+  "corruptDeviceConfig",
   "outdoorGeofenceCrossed",
+  "fallDetection",
+  "panicDetection",
+  "sameRoomTooLong",
   "infrastructureStatusTooLong",
 ] as const;
 
@@ -36,7 +46,7 @@ export const DeviceScopedSubscriptionTypeSchema = z.enum(
   deviceScopedSubscriptionTypeValues,
 );
 
-export const subscriptionTypeValues = [
+const subscriptionTypeValues = [
   ...statelessSubscriptionTypeValues,
   ...statefulSubscriptionTypeValues,
 ] as const;
@@ -54,17 +64,27 @@ export type DeviceScopedSubscriptionType = z.infer<
 >;
 export type SubscriptionType = z.infer<typeof SubscriptionTypeSchema>;
 
+/**
+ * Checks if a given type is a stateless subscription type. 
+ * @param value type to check
+ * @returns True if it is a known stateless subscription type, False otherwise.
+ */
 export function isStatelessSubscriptionType(
   value: string,
-): value is StatelessSubscriptionType {
+): boolean {
   return statelessSubscriptionTypeValues.includes(
     value as StatelessSubscriptionType,
   );
 }
 
+/**
+ * Checks if a given type is a subscription type thats supports device scoped subscriptions. 
+ * @param value type to check
+ * @returns True if it is a known subscription type and supports device scoping, False otherwise.
+ */
 export function supportsDeviceScopedSubscriptions(
   value: SubscriptionType,
-): value is DeviceScopedSubscriptionType {
+): boolean {
   return deviceScopedSubscriptionTypeValues.includes(
     value as DeviceScopedSubscriptionType,
   );

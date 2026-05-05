@@ -1,24 +1,33 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stdint.h>
 #include "esp_err.h"
 
 /**
  * @brief Initialize Wi-Fi service resources and register event handlers.
  *
- * @return ESP_OK   on success; ESP_FAIL otherwise.
- * @retval ESP_OK   Wi-Fi service initialized
- * @retval ESP_FAIL Init failed (details logged)
+ * @retval ESP_OK Wi-Fi service initialized successfully.
+ * @retval ESP_FAIL Initialization failed.
  */
-esp_err_t wifi_service_init(void);
+esp_err_t wifi_init(void);
 
 /**
- * @brief Spawn a background task to manage Wi-Fi connection and reconnects.
+ * @brief Spawn the background task that manages Wi-Fi connection and reconnects.
  *
- * Uses SSID/password from app context.
+ * Uses the SSID and password from the application context.
  *
- * @return ESP_OK on success; ESP_FAIL otherwise.
- * @retval ESP_OK   Connector task started
- * @retval ESP_FAIL Task creation failed or Wi-Fi not initialized
+ * @retval ESP_OK Connector task started successfully.
+ * @retval ESP_FAIL Wi-Fi is not initialized or task creation failed.
  */
 esp_err_t spawn_wifi_connector_task(void);
+
+/**
+ * @brief Wait until the station has an IP connection.
+ *
+ * @param timeout_ms Maximum time to wait in milliseconds.
+ * @retval ESP_OK Wi-Fi is connected.
+ * @retval ESP_ERR_TIMEOUT Timed out while waiting for a connection.
+ * @retval ESP_FAIL Service is not initialized.
+ */
+esp_err_t wifi_wait_for_connection(uint32_t timeout_ms);

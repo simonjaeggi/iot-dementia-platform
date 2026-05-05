@@ -7,6 +7,7 @@ import {
   FingerprintSchema,
 } from "../device/zod/cert-fingerprint.schema";
 import { isDeviceAuthorised } from "../device/device.mtls.service";
+import { validatedEnv } from "../../env-validation";
 
 declare module "hono" {
   interface ContextVariableMap {
@@ -30,12 +31,12 @@ export function getUserIdFromJwt(c: Context): number {
 }
 
 /**
- * Helper function that extracts the authorised device fingerprint from context.
+ * Helper function that extracts the device fingerprint from context.
  * @argument c HTTP request context
  * @returns Device fingerprint
  * @throws {HTTPException} 401 Invalid device context
  */
-export function getAuthorisedDeviceFingerprint(c: Context): FingerprintDto {
+export function getDeviceFingerprintFromContext(c: Context): FingerprintDto {
   const parsed = FingerprintSchema.safeParse(c.get("authorisedDeviceFingerprint"));
   if (!parsed.success) {
     throw new HTTPException(401, { message: "Invalid device context." });
@@ -92,7 +93,8 @@ export function requireAuthorisedDeviceFingerprint(): MiddlewareHandler {
 
     const fingerprint = parsed.data;
 
-    const ok = await isDeviceAuthorised(fingerprint);
+    const ok = validatedEnv.SUPER_DANGEROUS_TURN_OFF_DEVICE_AUTH_FOR_TESTING
+      || await isDeviceAuthorised(fingerprint);
     if (!ok) {
       throw new HTTPException(401, {
         message: "Device not authorised.",

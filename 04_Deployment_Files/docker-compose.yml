@@ -1,0 +1,37 @@
+# Start the docker containers using
+# docker compose -f docker-compose.yml --env-file .env.compose up -d
+
+# To delete
+# docker compose -f docker-compose.yml --env-file .env.compose down
+# To rebuild from scratch
+# docker compose -f docker-compose.yml --env-file .env.compose up -d --force-recreate
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    image: cr.gitlab.switch.ch/hslu/research/iotsas/iotss/edu-projects/baa-projects/ba-2026-fs26-simonjaeggi/backend:v0.1.0
+    env_file:
+      - .env.backend
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:3000:3000"
+
+    command: sh -c "bunx drizzle-kit migrate && bun src/index.ts"
+
+volumes:
+  pgdata:

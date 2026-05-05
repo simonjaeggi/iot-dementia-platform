@@ -11,20 +11,12 @@ const DeviceSource = z.object({
 
 const BackendSource = z.object({
   kind: z.literal("backend"),
-  service: z.enum(["auth", "db"]),
-});
-
-// todo not sure if I will need this event source, as users should not be able to directly create events
-const UserSource = z.object({
-  kind: z.literal("user"),
-  userId: z.string(),
-  userEmail: z.email(),
+  service: z.enum(["auth", "db", "update"]),
 });
 
 const SourceSchema = z.discriminatedUnion("kind", [
   DeviceSource,
   BackendSource,
-  UserSource,
 ]);
 
 const BaseEvent = z.object({
@@ -58,7 +50,7 @@ const OutdoorLocationEvent = BaseEvent.extend({
     lat: z.number(),
     lng: z.number(),
     satelliteCount: z.number().min(1),
-    precisionMeters: z.number().min(1),
+    altitudeMeters: z.number(),
   }),
 });
 
@@ -70,10 +62,25 @@ const TemperatureEvent = BaseEvent.extend({
   }),
 });
 
+const LightIntensityEvent = BaseEvent.extend({
+  type: z.literal("lightIntensity"),
+  data: z.object({
+    lux: z.number().min(0),
+  }),
+});
+
+const AccelerationEvent = BaseEvent.extend({
+  type: z.literal("acceleration"),
+  data: z.object({
+    magnitudeG: z.number().min(0),
+  }),
+});
+
 const NoiseLevelEvent = BaseEvent.extend({
   type: z.literal("noiseLevel"),
   data: z.object({
-    db: z.number(),
+    approx_db: z.number(),
+    dbfs: z.number(),
   }),
 });
 
@@ -95,6 +102,13 @@ const UpdateAvailableEvent = BaseEvent.extend({
   type: z.literal("updateAvailable"),
   data: z.object({
     version: z.string(),
+  }),
+});
+
+const CorruptDeviceConfigEvent = BaseEvent.extend({
+  type: z.literal("corruptDeviceConfig"),
+  data: z.object({
+    fallbackVersion: z.coerce.number().int().nonnegative(),
   }),
 });
 
@@ -149,10 +163,13 @@ export const EventSchema = z.discriminatedUnion("type", [
   IndoorLocationEvent,
   OutdoorLocationEvent,
   TemperatureEvent,
+  LightIntensityEvent,
+  AccelerationEvent,
   NoiseLevelEvent,
   HumidityEvent,
   InfrastructureEvent,
   UpdateAvailableEvent,
+  CorruptDeviceConfigEvent,
   LoginEvent,
   RegisterEvent,
   PasswordChangeEvent,
@@ -162,3 +179,4 @@ export const EventSchema = z.discriminatedUnion("type", [
 ]);
 
 export type EventDto = z.infer<typeof EventSchema>;
+export type NoiseLevelEvent = z.infer<typeof NoiseLevelEvent>

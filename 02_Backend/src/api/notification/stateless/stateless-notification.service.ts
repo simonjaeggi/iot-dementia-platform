@@ -58,7 +58,7 @@ function matchesSubscriptionDeviceScope(
   event: EventDto,
   deviceFingerprint: string | null,
 ): boolean {
-  if (!deviceFingerprint) {
+  if (deviceFingerprint === null || deviceFingerprint === "") {
     return true;
   }
 
@@ -100,8 +100,12 @@ function formatStatelessNotificationDetails(event: EventDto): string | null {
       return `The user with email ${event.data.user.email} logged into the system.`;
     case "register":
       return `A new user was registered using the email: ${event.data.user.email}.`;
+    case "corruptDeviceConfig":
+      return `A new device configuration was rejected by a device. The device fell back to config version ${event.data.fallbackVersion}.`;
     case "temperature":
       return `Temperature: ${event.data.value} ${event.data.unit}`;
+    case "lightIntensity":
+      return `Light intensity: ${event.data.lux} lux`;
     default:
       if ("data" in event) {
         return JSON.stringify(event.data, null, 2);

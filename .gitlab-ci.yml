@@ -1,0 +1,45 @@
+stages:
+  - build
+
+variables:
+  DOCKER_HOST: tcp://docker:2375
+  DOCKER_TLS_CERTDIR: ""
+
+default:
+  image: docker:27.5.1
+  services:
+    - name: docker:27.5.1-dind
+      alias: docker
+      command: ["--host=tcp://0.0.0.0:2375", "--tls=false"]
+  before_script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+
+build_backend_image:
+  stage: build
+  rules:
+    - if: $CI_COMMIT_TAG
+    - changes:
+        - 02_Backend/**/*
+        - .gitlab-ci.yml
+  script:
+    - |
+      VERSION="${CI_COMMIT_TAG:-$CI_COMMIT_SHORT_SHA}"
+      IMAGE="$CI_REGISTRY_IMAGE/backend:$VERSION"
+
+      docker build --build-arg APP_VERSION="$VERSION" -t "$IMAGE" 02_Backend
+      docker push "$IMAGE"
+
+build_frontend_image:
+  stage: build
+  rules:
+    - if: $CI_COMMIT_TAG
+    - changes:
+        - 01_Frontend/**/*
+        - .gitlab-ci.yml
+  script:
+    - |
+      VERSION="${CI_COMMIT_TAG:-$CI_COMMIT_SHORT_SHA}"
+      IMAGE="$CI_REGISTRY_IMAGE/frontend:$VERSION"
+
+      docker build --build-arg APP_VERSION="$VERSION" -t "$IMAGE" 01_Frontend
+      docker push "$IMAGE"

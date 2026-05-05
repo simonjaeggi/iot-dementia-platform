@@ -19,7 +19,7 @@ import {
  * @throws {HTTPException} 400 payload invalid
  * @throws {HTTPException} 401 invalid credentials
  */
-export async function login(c: Context): Promise<{ ok: boolean }> {
+export async function login(c: Context) {
   const body = await c.req.json().catch(() => null);
   const dtoResult = LoginUserSchema.safeParse(body);
   if (!dtoResult.success) {

@@ -7,6 +7,7 @@ import { apiRoutes } from "./api/api.routes";
 import { sendNotifications } from "./api/notification/notification.transport.service";
 import { processStatefulNotifications } from "./api/notification/stateful/stateful-notification.service";
 import { CreateInitialAccessCodeError } from "./api/auth/auth.exceptions";
+import { pollSoftwareVersion } from "./software-update/software-update.service";
 
 const app = new Hono();
 app.use(logger());
@@ -47,6 +48,14 @@ Bun.serve({
   hostname: validatedEnv.INTERNAL_HOST,
   fetch: app.fetch,
 });
+
+setInterval(async () => {
+  try {    
+    await pollSoftwareVersion();
+  } catch (error) {
+    console.error("Failed to run software version poll", error);
+  }
+}, 10000);
 
 setInterval(async () => {
   try {

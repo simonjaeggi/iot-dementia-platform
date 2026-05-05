@@ -6,19 +6,23 @@ import {
   groupSubscriptionsByUser,
 } from "../notification.service";
 import { devices, infrastructureStates } from "../../../db/schema";
-import { formatDurationFromSeconds, formatSwissTimestamp } from "../../../shared/utils";
-import { StateDurationThresholdConfig } from "../zod/threshold.schema";
 import {
-  InfrastructureState,
-  StoredUserEventSubscription,
+  formatDurationFromSeconds,
+  formatSwissTimestamp,
+} from "../../../shared/utils";
+import { InfrastructureStateDurationThresholdConfig } from "../zod/threshold.schema";
+import {
+  ExistingInfrastructureState,
+  ExistingUserEventSubscription,
 } from "../../../db/types";
 import { hasSubscriptionTriggeredNotificationSinceTime } from "../stateless/stateless-notification.service";
-type InfrastructureStateWithDeviceName = InfrastructureState & {
+type InfrastructureStateWithDeviceName = ExistingInfrastructureState & {
   deviceName: string | null;
 };
-type UserEventSubscriptionWithStateDuration = StoredUserEventSubscription & {
-  thresholdConfig: StateDurationThresholdConfig;
-};
+type UserEventSubscriptionWithInfrastructureStateDuration =
+  ExistingUserEventSubscription & {
+    thresholdConfig: InfrastructureStateDurationThresholdConfig;
+  };
 /**
  * Checks infrastructure states against matching subscriptions.
  * If a subscription matches a state and has not already caused a notification
@@ -34,8 +38,8 @@ export async function processInfrastructureNotifications(
     "infrastructureStatusTooLong",
   );
   const subscriptions = subscriptionRows.filter(
-    isStateDurationSubscription,
-  ) as UserEventSubscriptionWithStateDuration[];
+    isInfrastructureStateDurationSubscription,
+  ) as UserEventSubscriptionWithInfrastructureStateDuration[];
 
   for (const state of states) {
     const dueSubscriptions = subscriptions.filter(
@@ -54,7 +58,7 @@ export async function processInfrastructureNotifications(
       continue;
     }
 
-    const pendingSubscriptions: StoredUserEventSubscription[] = [];
+    const pendingSubscriptions: ExistingUserEventSubscription[] = [];
 
     for (const subscription of dueSubscriptions) {
       if (
@@ -69,6 +73,10 @@ export async function processInfrastructureNotifications(
       pendingSubscriptions.push(subscription);
     }
 
+    if (pendingSubscriptions.length === 0) {
+      continue;
+    }
+
     await createNotificationsForUsers(
       groupSubscriptionsByUser(pendingSubscriptions),
       buildInfrastructureNotificationContent(state, now),
@@ -80,14 +88,16 @@ export async function processInfrastructureNotifications(
 /**
  * Checks if a subscription is a state duration subscription based on the threshold object in db.
  * @param subscription subscription to check
- * @returns true if category is stateDuration, false otherwise
+ * @returns true if category is infrastructureStateDuration, false otherwise
  */
-function isStateDurationSubscription(
-  subscription: StoredUserEventSubscription,
+function isInfrastructureStateDurationSubscription(
+  subscription: ExistingUserEventSubscription,
 ) {
   if (!subscription.thresholdConfig || !subscription.thresholdConfig.category)
     return false;
-  return subscription.thresholdConfig?.category === "stateDuration";
+  return (
+    subscription.thresholdConfig?.category === "infrastructureStateDuration"
+  );
 }
 
 /**
@@ -101,7 +111,7 @@ function buildInfrastructureNotificationContent(
   now: Date,
 ): { title: string; message: string } {
   const deviceLabel =
-    state.deviceName?.trim() || state.deviceCertFingerprintSha256;
+    state.deviceName?.trim() || state.deviceCertFingerprintSha256.slice(0, 6);
   const elapsedSeconds = Math.max(
     0,
     Math.floor((now.getTime() - state.statusSince.getTime()) / 1000),
@@ -109,7 +119,10 @@ function buildInfrastructureNotificationContent(
 
   return {
     title: `Infrastructure ${state.status} too long`,
-    message: `${deviceLabel} has remained ${state.status} since ${formatSwissTimestamp(state.statusSince)} (${formatDurationFromSeconds(elapsedSeconds)}).`,
+    message:
+      `Infrastructure on ${deviceLabel} has remained ${state.status} since ` +
+      `${formatSwissTimestamp(state.statusSince)} ` +
+      `(${formatDurationFromSeconds(elapsedSeconds)}).`,
   };
 }
 

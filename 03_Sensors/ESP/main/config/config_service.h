@@ -1,38 +1,39 @@
 #pragma once
 #include "esp_err.h"
 #include <stddef.h>
+#include "cJSON.h"
+#include "device_config.h"
 
 /**
- * @brief Load configuration values from NVS into app context.
+ * @brief Load configuration values from NVS into the application context.
  *
  * Loads backend host, Wi-Fi SSID/password, ensures device name exists,
  * and updates boot id if not updated yet.
  *
- * @return ESP_OK on success; ESP_FAIL otherwise.
- * @retval ESP_OK   Context loaded from NVS
- * @retval ESP_FAIL Required values missing or read failed (details logged)
+ * @retval ESP_OK Required provisioning values were loaded successfully.
+ * @retval ESP_FAIL Required provisioning values are missing or unreadable.
  */
-esp_err_t config_service_set_context(void);
+esp_err_t config_set_context(void);
 
 /**
- * @brief Retrieve device config JSON from NVS.
+ * @brief Parse a device configuration JSON string and store it in the
+ * application context and NVS.
  *
- * @param out_json Output buffer for JSON config
- * @param out_len  Output buffer length
- * @return ESP_OK on success; specific error codes otherwise.
- * @retval ESP_OK               Device config found and written to buffer
- * @retval ESP_ERR_INVALID_ARG  Invalid arguments
- * @retval ESP_FAIL             Read failed (buffer set to empty string)
+ * @param json Device configuration JSON string.
+ * @retval ESP_OK Configuration parsed successfully and stored.
+ * @retval ESP_ERR_INVALID_ARG The input JSON string is invalid.
+ * @retval ESP_ERR_INVALID_RESPONSE The JSON could not be parsed or validated.
+ * @retval ESP_FAIL Memory allocation or storage failed.
  */
-esp_err_t config_service_read_device_config(char *out_json, size_t out_len);
+esp_err_t config_write_device_config(const char *json);
 
 /**
- * @brief Write device config JSON to NVS.
+ * @brief Parses a cJSON object into device_config_t.
  *
- * @param json Input buffer containing device config
- * @return ESP_OK on success; specific error codes otherwise.
- * @retval ESP_OK               Config written to NVS successfully
- * @retval ESP_ERR_INVALID_ARG  Invalid arguments
- * @retval ESP_FAIL             Write failed
+ * @param parsed_json Parsed cJSON root object.
+ * @param out_device_cfg Output device configuration structure.
+ * @retval ESP_OK The configuration was parsed successfully.
+ * @retval ESP_ERR_INVALID_ARG The input object is invalid or required fields are
+ *     missing or malformed.
  */
-esp_err_t config_service_write_device_config(const char *json);
+esp_err_t config_parse_device_config(cJSON *parsed_json, device_config_t *out_device_cfg);

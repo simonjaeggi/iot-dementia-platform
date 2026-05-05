@@ -1,93 +1,64 @@
-# ba-2026-fs26-SimonJaeggi
+# Thesis Project Repository
 
+This repository contains the full stack for the thesis project:
 
+- `01_Frontend`: web frontend
+- `02_Backend`: backend API, database setup, TLS, and reverse proxy setup
+- `03_Sensors`: ESP firmware and device provisioning tools
 
-## Getting started
+## Folder Structure
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-* [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
-
-```
-cd existing_repo
-git remote add origin https://gitlab.switch.ch/hslu/research/iotsas/iotss/edu-projects/baa-projects/ba-2026-fs26-simonjaeggi.git
-git branch -M main
-git push -uf origin main
+```text
+.
+├── 01_Frontend/
+├── 02_Backend/
+├── 03_Sensors/
+│   ├── ESP/
+│   └── device-provisioning/
+└── README.md
 ```
 
-## Integrate with your tools
+## Documentation Map
 
-* [Set up project integrations](https://gitlab.switch.ch/hslu/research/iotsas/iotss/edu-projects/baa-projects/ba-2026-fs26-simonjaeggi/-/settings/integrations)
+### Frontend
 
-## Collaborate with your team
+- [`01_Frontend/README.md`](01_Frontend/README.md): frontend-specific setup and development notes
 
-* [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+### Backend
 
-## Test and Deploy
+- [`02_Backend/README.md`](02_Backend/README.md): backend setup, database setup, certificates, Caddy, and backend-side device certificate requirements
 
-Use the built-in continuous integration in GitLab.
+### Sensors and Provisioning
 
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+- [`03_Sensors/ESP/README.md`](03_Sensors/ESP/README.md): ESP firmware notes, certificate provisioning flow, and AP provisioning
+- [`03_Sensors/device-provisioning/README.md`](03_Sensors/device-provisioning/README.md): host-side provisioning scripts for issuing certificates, registering them in the backend, and sending them to the device
 
-***
+## Recommended Reading Order
 
-# Editing this README
+1. Start here for the repository structure.
+2. Read [`02_Backend/README.md`](02_Backend/README.md) to set up the backend and certificate authority.
+3. Read [`03_Sensors/device-provisioning/README.md`](03_Sensors/device-provisioning/README.md) for certificate issuance and provisioning scripts.
+4. Read [`03_Sensors/ESP/README.md`](03_Sensors/ESP/README.md) for the device-side workflow.
+5. Read [`01_Frontend/README.md`](01_Frontend/README.md) for frontend setup.
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+## Notes
 
-## Suggestions for a good README
+- Device authentication depends on certificate fingerprints stored in the backend `device_certificates` table.
+- The ESP generates and keeps its private key on-device. Only the signed client certificate is provisioned to the device.
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+## Adding a Sensor
 
-## Name
-Choose a self-explaining name for your project.
+Adding support for a new sensor usually touches both the backend and the ESP firmware. The backend defines the configuration and event contract, and the ESP implements the actual sensor handling and emits payloads that match that contract.
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+### Recommended Sequence
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+1. Define the sensor configuration shape and event payload shape on the backend.
+2. Extend the ESP device configuration model so it can parse, store, and reload that sensor configuration from NVS.
+3. Implement the sensor-specific firmware logic and event generation on the ESP.
+4. Validate that the backend config sent to the device matches the ESP parser exactly.
+5. If the new sensor should be visible in the UI or notifications, update the frontend separately.
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+### Implementation Guides
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
-
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
-
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+- Backend contract and config changes: [`02_Backend/README.md#adding-a-sensor-on-the-backend`](02_Backend/README.md#adding-a-sensor-on-the-backend)
+- ESP device config and runtime changes: [`03_Sensors/ESP/README.md#adding-a-sensor-on-the-esp`](03_Sensors/ESP/README.md#adding-a-sensor-on-the-esp)

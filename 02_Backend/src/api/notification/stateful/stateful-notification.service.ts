@@ -1,9 +1,17 @@
+import { processFallDetectionNotifications } from "./fall-detection.service";
+import { processIndoorLocationNotifications } from "./indoor-location.service";
 import { processInfrastructureNotifications } from "./infrastructure-status-too-long.service";
+import { processOutdoorLocationNotifications } from "./outdoor-geofence-location.service";
+import { processPanicNotifications } from "./panic-detection.service";
 
 type StatefulNotificationProcessor = (now: Date) => Promise<void>;
 
 const statefulNotificationProcessors: StatefulNotificationProcessor[] = [
   processInfrastructureNotifications,
+  processFallDetectionNotifications,
+  processPanicNotifications,
+  processIndoorLocationNotifications,
+  processOutdoorLocationNotifications
 ];
 
 /**
