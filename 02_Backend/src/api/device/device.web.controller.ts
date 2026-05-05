@@ -5,9 +5,11 @@ import {
   getDevice,
   getDevices,
   renameDevice,
+  setDeviceType,
 } from "./device.web.service";
 import { FingerprintSchema } from "./zod/cert-fingerprint.schema";
 import { RenameDeviceSchema } from "./zod/device-rename.schema";
+import { SetDeviceTypeSchema } from "./zod/device-type.schema";
 
 /**
  * Returns devices.
@@ -95,4 +97,32 @@ export async function remove(c: Context) {
   }
 
   return c.json(deletedDevice);
+}
+
+/**
+ * Applies a station template to the specified device.
+ * @param c HTTP context containing { fingerprint, deviceType }
+ * @returns HTTP JSON response containing the updated device.
+ * @throws {HTTPException} 400 payload invalid
+ * @throws {HTTPException} 404 device not found
+ */
+export async function setType(c: Context) {
+  const body = await c.req.json().catch(() => null);
+
+  const dtoResult = SetDeviceTypeSchema.safeParse(body);
+  if (!dtoResult.success) {
+    throw new HTTPException(400, {
+      message: dtoResult.error.issues[0]?.message ?? "Invalid payload.",
+    });
+  }
+
+  const dto = dtoResult.data;
+
+  const updatedDevice = await setDeviceType(dto.fingerprint, dto);
+
+  if (!updatedDevice) {
+    throw new HTTPException(404, { message: "Device not found." });
+  }
+
+  return c.json(updatedDevice);
 }

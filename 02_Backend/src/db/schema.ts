@@ -2,19 +2,18 @@ import { sql } from "drizzle-orm";
 import {
   boolean,
   date,
+  doublePrecision,
   integer,
   pgTable,
   varchar,
   text,
   timestamp,
-  uuid,
   pgEnum,
   jsonb,
   uniqueIndex,
   index,
 } from "drizzle-orm/pg-core";
 import { DeviceConfigDto } from "../api/device/zod/device-config.schema";
-import { EventSchema } from "../api/event/zod/event.schema";
 import { userRoles } from "../api/auth/zod/user-roles.schema";
 import {
   DeliveryMethodSchema,
@@ -34,20 +33,6 @@ export const users = pgTable("users", {
   passwordHash: text("password_hash").notNull(),
   role: userRoleEnum("role").notNull().default("user"),
   pushId: text("push_id").notNull(),
-});
-
-export const refreshSessions = pgTable("refresh_sessions", {
-  id: uuid("id").primaryKey(),
-  userId: integer("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-
-  tokenHash: text("token_hash").notNull(),
-  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-  revokedAt: timestamp("revoked_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
 });
 
 export const accessCodes = pgTable(
@@ -106,6 +91,14 @@ export const devices = pgTable("devices", {
   config: jsonb("config").$type<DeviceConfigDto>().notNull(),
 });
 
+export const softwareVersions = pgTable("software_versions", {
+  id: integer().primaryKey().notNull(),
+  currentVersion: varchar("current_version", { length: 255 }),
+  availableVersion: varchar("available_version", { length: 255 }),
+  updateAvailable: boolean("update_available").notNull().default(false),
+  lastCheckedAt: timestamp("last_checked_at", { withTimezone: true }).notNull(),
+});
+
 export const locationBeacons = pgTable(
   "location_beacons",
   {
@@ -150,12 +143,20 @@ export const notificationDetailLevelEnum = pgEnum(
   notificationDetailLevelValues,
 );
 
-export const events = pgTable("events", {
-  id: integer().primaryKey().generatedAlwaysAsIdentity(),
-  type: eventTypeEnum("type").notNull(),
-  time: timestamp("time", { withTimezone: true }).notNull(),
-  data: jsonb("data").notNull(),
-});
+export const events = pgTable(
+  "events",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    type: eventTypeEnum("type").notNull(),
+    time: timestamp("time", { withTimezone: true }).notNull(),
+    data: jsonb("data").notNull(),
+  },
+  (table) => [
+    index("events_time_idx").on(table.time),
+    index("events_type_idx").on(table.type),
+    index("events_type_time_idx").on(table.type, table.time),
+  ],
+);
 
 export const userNotifications = pgTable(
   "user_notifications",
@@ -179,10 +180,13 @@ export const userNotifications = pgTable(
 
     readAt: timestamp("read_at", { withTimezone: true }),
   },
-  (t) => [
-    index("user_notifications_user_createdat_idx").on(t.userId, t.createdAt),
-    index("user_notifications_user_readat_idx").on(t.userId, t.readAt),
-    index("user_notifications_event_idx").on(t.triggerEventId),
+  (table) => [
+    index("user_notifications_user_createdat_idx").on(
+      table.userId,
+      table.createdAt,
+    ),
+    index("user_notifications_user_readat_idx").on(table.userId, table.readAt),
+    index("user_notifications_event_idx").on(table.triggerEventId),
   ],
 );
 
@@ -249,6 +253,131 @@ export const infrastructureStates = pgTable(
       table.nextCheckAt,
     ),
     index("infrastructure_states_last_event_idx").on(table.lastEventId),
+  ],
+);
+
+export const outdoorLocationStates = pgTable(
+  "outdoor_location_states",
+  {
+    deviceCertFingerprintSha256: varchar("device_cert_fingerprint_sha256", {
+      length: 64,
+    })
+      .primaryKey()
+      .references(() => devices.certFingerprintSha256, {
+        onDelete: "cascade",
+      }),
+    latestLat: doublePrecision("latest_lat").notNull(),
+    latestLng: doublePrecision("latest_lng").notNull(),
+    latestAltitudeMeters: doublePrecision("latest_altitude_meters").notNull(),
+    latestSatelliteCount: integer("latest_satellite_count").notNull(),
+    previousLat: doublePrecision("previous_lat"),
+    previousLng: doublePrecision("previous_lng"),
+    previousAltitudeMeters: doublePrecision("previous_altitude_meters"),
+    previousSatelliteCount: integer("previous_satellite_count"),
+    previousObservedAt: timestamp("previous_observed_at", {
+      withTimezone: true,
+    }),
+    lastObservedAt: timestamp("last_observed_at", {
+      withTimezone: true,
+    }).notNull(),
+    lastEventId: integer("last_event_id").references(() => events.id, {
+      onDelete: "set null",
+    }),
+  },
+  (table) => [
+    index("outdoor_location_states_last_observed_at_idx").on(
+      table.lastObservedAt,
+    ),
+    index("outdoor_location_states_last_event_idx").on(table.lastEventId),
+  ],
+);
+
+export const indoorLocationStates = pgTable(
+  "indoor_location_states",
+  {
+    deviceCertFingerprintSha256: varchar("device_cert_fingerprint_sha256", {
+      length: 64,
+    })
+      .primaryKey()
+      .references(() => devices.certFingerprintSha256, {
+        onDelete: "cascade",
+      }),
+    currentBeaconMacIdentifier: varchar("current_beacon_mac_identifier", {
+      length: 17,
+    }).references(() => locationBeacons.macIdentifier, {
+      onDelete: "set null",
+    }),
+    previousBeaconMacIdentifier: varchar("previous_beacon_mac_identifier", {
+      length: 17,
+    }).references(() => locationBeacons.macIdentifier, {
+      onDelete: "set null",
+    }),
+    beaconSince: timestamp("beacon_since", { withTimezone: true }),
+    previousObservedAt: timestamp("previous_observed_at", {
+      withTimezone: true,
+    }),
+    lastObservedAt: timestamp("last_observed_at", {
+      withTimezone: true,
+    }).notNull(),
+    lastEventId: integer("last_event_id").references(() => events.id, {
+      onDelete: "set null",
+    }),
+  },
+  (table) => [
+    index("indoor_location_states_current_beacon_last_observed_idx").on(
+      table.currentBeaconMacIdentifier,
+      table.lastObservedAt,
+    ),
+    index("indoor_location_states_last_event_idx").on(table.lastEventId),
+  ],
+);
+
+export const fallDetectionStates = pgTable(
+  "fall_detection_states",
+  {
+    deviceCertFingerprintSha256: varchar("device_cert_fingerprint_sha256", {
+      length: 64,
+    })
+      .primaryKey()
+      .references(() => devices.certFingerprintSha256, {
+        onDelete: "cascade",
+      }),
+    candidateStartedAt: timestamp("candidate_started_at", {
+      withTimezone: true,
+    }),
+    triggerAccelerationMagnitudeG: doublePrecision(
+      "trigger_acceleration_magnitude_g",
+    ),
+    triggerAccelerationEventId: integer(
+      "trigger_acceleration_event_id",
+    ).references(() => events.id, {
+      onDelete: "set null",
+    }),
+    triggerBeaconMacIdentifier: varchar("trigger_beacon_mac_identifier", {
+      length: 17,
+    }).references(() => locationBeacons.macIdentifier, {
+      onDelete: "set null",
+    }),
+    lastObservedBeaconMacIdentifier: varchar(
+      "last_observed_beacon_mac_identifier",
+      {
+        length: 17,
+      },
+    ).references(() => locationBeacons.macIdentifier, {
+      onDelete: "set null",
+    }),
+    lastObservedAt: timestamp("last_observed_at", {
+      withTimezone: true,
+    }).notNull(),
+    lastEventId: integer("last_event_id").references(() => events.id, {
+      onDelete: "set null",
+    }),
+  },
+  (table) => [
+    index("fall_detection_states_candidate_started_at_idx").on(
+      table.candidateStartedAt,
+    ),
+    index("fall_detection_states_last_event_idx").on(table.lastEventId),
   ],
 );
 

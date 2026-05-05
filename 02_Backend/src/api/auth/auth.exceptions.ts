@@ -20,8 +20,8 @@ export class CreateUserFailedError extends Error {
 }
 
 export class CreateInitialAccessCodeError extends Error {
-  constructor() {
-    super("Failed to create initial access code");
+  constructor(message = "Failed to create initial access code") {
+    super(message);
     this.name = "CreateInitialAccessCodeError";
   }
 }

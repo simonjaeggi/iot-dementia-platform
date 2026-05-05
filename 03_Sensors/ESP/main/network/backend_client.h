@@ -5,59 +5,64 @@
 #include <stdint.h>
 
 /**
- * @brief Sends backend get request to fetch device config using HTTPs over mTLS.
+ * @brief Fetch the device configuration from the backend over HTTPS with mTLS.
  *
- * @param backend_hostname  hostname to connect to
- * @param device_cert_pem   client cert (PEM) for mTLS
- * @param device_key_pem    client key (PEM) for mTLS
- * @param out_buf           buffer to write output to
- * @param out_len           length of output buffer
- * 
- * @return ESP_OK on success; specific error codes otherwise.
- * @retval ESP_OK                   Returned 2xx HTTP response
- * @retval ESP_ERR_INVALID_ARG      Invalid arguments
- * @retval ESP_ERR_INVALID_RESPONSE Returned non 2xx HTTP response
- * @retval ESP_FAIL                 Request failed (details logged)
+ * @param backend_hostname Backend hostname.
+ * @param device_cert_pem Client certificate in PEM format for mTLS.
+ * @param device_key_pem Client private key in PEM format for mTLS.
+ * @param out_buf Output buffer for the response body.
+ * @param out_len Capacity of the output buffer in bytes.
+ * @return Error code describing the request result.
+ * @retval ESP_OK The backend returned a 2xx HTTP response.
+ * @retval ESP_ERR_INVALID_ARG One or more arguments are invalid.
+ * @retval ESP_ERR_INVALID_RESPONSE The backend returned a non-2xx HTTP response.
+ * @retval ESP_FAIL HTTP client initialization failed.
  */
 esp_err_t backend_get_config(const char *backend_hostname,
                              const char *device_cert_pem,
                              const char *device_key_pem,
                              char *out_buf,
                              size_t out_len);
+
 /**
- * @brief Sends backend post to report device alive and check for config change using HTTPs over mTLS.
+ * @brief Report device liveness and check for configuration changes over HTTPS
+ * with mTLS.
  *
- * @param backend_hostname  hostname to connect to
- * @param device_cert_pem   client cert (PEM) for mTLS
- * @param device_key_pem    client key (PEM) for mTLS
- * @param config_version    current config version
- * @param config_changed    output flag buffer to indicate if device config is up to date
- * 
- * @return ESP_OK on success; specific error codes otherwise.
- * @retval ESP_OK                   Returned 2xx HTTP response
- * @retval ESP_ERR_INVALID_ARG      Invalid arguments
- * @retval ESP_ERR_INVALID_RESPONSE Returned non 2xx HTTP response
- * @retval ESP_FAIL                 Request failed (details logged)
+ * If the backend returns a 2xx response with an invalid or incomplete JSON
+ * body, the function logs a warning, leaves *config_changed false, and
+ * returns ESP_OK.
+ *
+ * @param backend_hostname Backend hostname.
+ * @param device_cert_pem Client certificate in PEM format for mTLS.
+ * @param device_key_pem Client private key in PEM format for mTLS.
+ * @param config_version Current device configuration version.
+ * @param config_changed Output flag set to true when the backend requires a
+ *     configuration update.
+ * @return Error code describing the request result.
+ * @retval ESP_OK The backend returned a 2xx HTTP response.
+ * @retval ESP_ERR_INVALID_ARG One or more arguments are invalid.
+ * @retval ESP_ERR_INVALID_RESPONSE The backend returned a non-2xx HTTP response.
+ * @retval ESP_FAIL HTTP client initialization failed.
  */
 esp_err_t backend_post_report(const char *backend_hostname,
                               const char *device_cert_pem,
                               const char *device_key_pem,
                               uint32_t config_version,
                               bool *config_changed);
+
 /**
- * @brief Sends backend post request to send a device event using HTTPs over mTLS.
+ * @brief Send a device event to the backend over HTTPS with mTLS.
  *
- * @param backend_hostname  hostname to connect to
- * @param device_cert_pem   client cert (PEM) for mTLS
- * @param device_key_pem    client key (PEM) for mTLS
- * @param payload           event payload
- * @param payload_len       event payload length in bytes
- * 
- * @return ESP_OK on success; specific error codes otherwise.
- * @retval ESP_OK                   Returned 2xx HTTP response
- * @retval ESP_ERR_INVALID_ARG      Invalid arguments
- * @retval ESP_ERR_INVALID_RESPONSE Returned non 2xx HTTP response
- * @retval ESP_FAIL                 Request failed (details logged)
+ * @param backend_hostname Backend hostname.
+ * @param device_cert_pem Client certificate in PEM format for mTLS.
+ * @param device_key_pem Client private key in PEM format for mTLS.
+ * @param payload Event payload.
+ * @param payload_len Event payload length in bytes.
+ * @return Error code describing the request result.
+ * @retval ESP_OK The backend returned a 2xx HTTP response.
+ * @retval ESP_ERR_INVALID_ARG One or more arguments are invalid.
+ * @retval ESP_ERR_INVALID_RESPONSE The backend returned a non-2xx HTTP response.
+ * @retval ESP_FAIL HTTP client initialization failed.
  */
 esp_err_t backend_post_event(const char *backend_hostname,
                              const char *device_cert_pem,

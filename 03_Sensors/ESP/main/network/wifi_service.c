@@ -25,10 +25,10 @@ static esp_event_handler_instance_t s_ip_got_ip;
 /**
  * @brief Wi-Fi and IP event handler.
  *
- * @param arg        Unused
- * @param event_base Event base (WIFI_EVENT/IP_EVENT)
- * @param event_id   Event ID
- * @param event_data Unused
+ * @param arg Unused task argument.
+ * @param event_base Event base.
+ * @param event_id Event identifier.
+ * @param event_data Event-specific data.
  */
 static void event_handler(void *arg, esp_event_base_t event_base,
                           int32_t event_id, void *event_data)
@@ -38,18 +38,19 @@ static void event_handler(void *arg, esp_event_base_t event_base,
 
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED)
     {
+        xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
         xEventGroupSetBits(s_wifi_event_group, WIFI_DISCONNECTED_BIT);
     }
     else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP)
     {
         ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
-        ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
+        ESP_LOGI(TAG, "Received IP address: " IPSTR, IP2STR(&event->ip_info.ip));
         xEventGroupClearBits(s_wifi_event_group, WIFI_DISCONNECTED_BIT);
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
     }
 }
 
-esp_err_t wifi_service_init(void)
+esp_err_t wifi_init(void)
 {
     esp_err_t err = esp_netif_init();
     if (err != ESP_OK && err != ESP_ERR_INVALID_STATE)
@@ -109,13 +110,12 @@ esp_err_t wifi_service_init(void)
 /**
  * @brief Configure and start Wi-Fi station mode.
  *
- * @param ssid Wi-Fi SSID
- * @param pass Wi-Fi password (optional)
- * @return ESP_OK on success; ESP_FAIL otherwise.
- * @retval ESP_OK   Station started
- * @retval ESP_FAIL Invalid args or start failed (details logged)
+ * @param ssid Wi-Fi SSID.
+ * @param pass Wi-Fi password, or NULL for an open network.
+ * @retval ESP_OK Station started successfully.
+ * @retval ESP_FAIL Invalid arguments or station startup failed.
  */
-static esp_err_t wifi_service_start_sta(const char *ssid, const char *pass)
+static esp_err_t start_sta(const char *ssid, const char *pass)
 {
     if (!ssid || !ssid[0])
     {
@@ -156,13 +156,14 @@ static esp_err_t wifi_service_start_sta(const char *ssid, const char *pass)
 }
 
 /**
- * @brief Background task that manages connect/reconnect flow.
+ * @brief Background task that manages Wi-Fi connect and reconnect flow.
  *
- * Uses SSID/password from app context and retries with backoff.
+ * Uses the SSID and password from the application context and retries with
+ * backoff.
  *
- * @param arg Unused
+ * @param arg Unused task argument.
  */
-static void wifi_service_connect_task(void *arg)
+static void connect_task(void *arg)
 {
     (void)arg;
 
@@ -175,7 +176,7 @@ static void wifi_service_connect_task(void *arg)
         return;
     }
 
-    if (wifi_service_start_sta(ssid, pass && pass[0] ? pass : NULL) != ESP_OK)
+    if (start_sta(ssid, pass && pass[0] ? pass : NULL) != ESP_OK)
     {
         ESP_LOGE(TAG, "Failed to start Wi-Fi station");
         vTaskDelete(NULL);
@@ -222,7 +223,7 @@ static void wifi_service_connect_task(void *arg)
         {
             ESP_LOGW(TAG, "Wi-Fi connect attempts exhausted; backing off");
             attempts = 0;
-            vTaskDelay(pdMS_TO_TICKS(WIFI_CONNECT_TIMEOUT_MS));
+            vTaskDelay(pdMS_TO_TICKS(WIFI_CONNECT_BACKOFF_DELAY_MS));
         }
         else
         {
@@ -239,7 +240,7 @@ esp_err_t spawn_wifi_connector_task(void)
         return ESP_FAIL;
     }
 
-    BaseType_t result = xTaskCreate(wifi_service_connect_task,
+    BaseType_t result = xTaskCreate(connect_task,
                                     "wifi_connect",
                                     4096,
                                     NULL,
@@ -252,4 +253,21 @@ esp_err_t spawn_wifi_connector_task(void)
     }
 
     return ESP_OK;
+}
+
+esp_err_t wifi_wait_for_connection(uint32_t timeout_ms)
+{
+    if (!s_wifi_event_group)
+    {
+        return ESP_FAIL;
+    }
+
+    EventBits_t bits = xEventGroupWaitBits(
+        s_wifi_event_group,
+        WIFI_CONNECTED_BIT,
+        pdFALSE,
+        pdFALSE,
+        pdMS_TO_TICKS(timeout_ms));
+
+    return (bits & WIFI_CONNECTED_BIT) ? ESP_OK : ESP_ERR_TIMEOUT;
 }

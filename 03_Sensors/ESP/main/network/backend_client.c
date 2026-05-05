@@ -1,39 +1,90 @@
 /**
  * @file backend_client.c
- * @brief This file handles HTTP requests and resposonses towards the backend.
+ * @brief Backend HTTP client helpers.
  */
 
 #include "app_config.h"
 #include "backend_client.h"
+#include "cJSON.h"
 #include "esp_http_client.h"
 #include "esp_log.h"
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#define TAG "backend"
+#define TAG "backend-client"
 
 extern const unsigned char server_pem_start[] asm("_binary_server_crt_start");
 
+typedef struct
+{
+    char *buffer;
+    size_t buffer_len;
+    size_t used;
+    bool truncated;
+} backend_response_buffer_t;
+
+static esp_err_t backend_http_event_handler(esp_http_client_event_t *evt)
+{
+    if (evt == NULL || evt->event_id != HTTP_EVENT_ON_DATA)
+    {
+        return ESP_OK;
+    }
+
+    backend_response_buffer_t *response = (backend_response_buffer_t *)evt->user_data;
+    if (response == NULL || response->buffer == NULL || response->buffer_len == 0 ||
+        evt->data == NULL || evt->data_len <= 0)
+    {
+        return ESP_OK;
+    }
+
+    size_t max_payload_len = response->buffer_len - 1;
+    if (response->used >= max_payload_len)
+    {
+        response->truncated = true;
+        return ESP_OK;
+    }
+
+    size_t copy_len = (size_t)evt->data_len;
+    if (copy_len > max_payload_len - response->used)
+    {
+        copy_len = max_payload_len - response->used;
+        response->truncated = true;
+    }
+
+    memcpy(response->buffer + response->used, evt->data, copy_len);
+    response->used += copy_len;
+    response->buffer[response->used] = '\0';
+
+    return ESP_OK;
+}
+
 /**
- * @brief Sends an HTTPs request to a server, handling TLS and MTLS connections and memory cleanup. 
+ * @brief Perform an HTTPS request with optional mTLS credentials.
  *
- * @param url               target web url
- * @param label             label for logging
- * @param method            HTTP method from enum esp_http_client_method_t
- * @param server_cert_pem   cert of target server to verify connection
- * @param client_cert_pem   client cert for MTLS, set NULL if server encryption only.
- * @param client_key_pem    client key for MTLS, set NULL if server encryption only.
- * @param content_type      X-Content-Type header (PUT/POST), set NULL if no message sent
- * @param payload           Message, set NULL if no message sent
- * @param payload_len       Message length in bytes, 0 if no message sent
- * @param resp_buf          response buffer
- * @param resp_len          response buffer length
+ * The function may also return transport errors from
+ * esp_http_client_perform().
  *
- * @return ESP_OK on success; specific error codes otherwise.
- * @retval ESP_OK                   Received 2xx HTTP response
- * @retval ESP_FAIL                 HTTP client not initialised
- * @retval ESP_ERR_INVALID_RESPONSE Received non 2xx HTTP response
+ * @param url Target URL.
+ * @param label Label used for logging.
+ * @param method HTTP method.
+ * @param server_cert_pem Server certificate in PEM format used for TLS
+ *     verification.
+ * @param client_cert_pem Client certificate in PEM format, or NULL when mTLS is
+ *     not used.
+ * @param client_key_pem Client private key in PEM format, or NULL when mTLS is
+ *     not used.
+ * @param content_type Content-Type header value, or NULL when no request body is
+ *     sent.
+ * @param payload Request body, or NULL when no request body is sent.
+ * @param payload_len Request body length in bytes.
+ * @param resp_buf Output buffer for the response body.
+ * @param resp_len Capacity of the response buffer in bytes.
+ * @return Error code describing the request result.
+ * @retval ESP_OK A 2xx HTTP response was received.
+ * @retval ESP_ERR_INVALID_RESPONSE A non-2xx HTTP response was received.
+ * @retval ESP_FAIL HTTP client initialization failed.
  */
 static esp_err_t backend_request(
     const char *url,
@@ -48,8 +99,22 @@ static esp_err_t backend_request(
     char *resp_buf,
     size_t resp_len)
 {
-    // todo Ensure JSON payloads are built with escaping (cJSON)
-    // todo check if calling backend_request embedding can be used to inject strings with snprintf.
+    // TODO: Ensure JSON payloads are built with proper escaping, for example
+    // with cJSON.
+    // TODO: Recheck whether the current snprintf-based request construction can
+    // allow string injection in future call sites.
+    backend_response_buffer_t response = {
+        .buffer = resp_buf,
+        .buffer_len = resp_len,
+        .used = 0,
+        .truncated = false,
+    };
+
+    if (resp_buf != NULL && resp_len > 0)
+    {
+        resp_buf[0] = '\0';
+    }
+
     esp_http_client_config_t cfg = {
         .url = url,
         .method = method,
@@ -57,6 +122,8 @@ static esp_err_t backend_request(
         .cert_pem = server_cert_pem,
         .client_cert_pem = client_cert_pem,
         .client_key_pem = client_key_pem,
+        .event_handler = backend_http_event_handler,
+        .user_data = (resp_buf != NULL && resp_len > 0) ? &response : NULL,
     };
 
     esp_http_client_handle_t client = esp_http_client_init(&cfg);
@@ -86,30 +153,14 @@ static esp_err_t backend_request(
     int status = esp_http_client_get_status_code(client);
     ESP_LOGI(TAG, "%s status: %d", label, status);
 
-    if (resp_buf && resp_len > 0)
+    if (resp_buf && resp_len > 0 && resp_buf[0] != '\0')
     {
-        resp_buf[0] = 0;
+        ESP_LOGI(TAG, "%s resp: %s", label, resp_buf);
     }
 
-    char resp[256];
-    int n = 0;
-    size_t used = 0;
-    while ((n = esp_http_client_read(client, resp, sizeof(resp) - 1)) > 0)
+    if (response.truncated)
     {
-        resp[n] = 0;
-        ESP_LOGI(TAG, "%s resp: %s", label, resp);
-
-        if (resp_buf && resp_len > 1 && used < resp_len - 1)
-        {
-            size_t copy_len = (size_t)n;
-            if (copy_len > resp_len - 1 - used)
-            {
-                copy_len = resp_len - 1 - used;
-            }
-            memcpy(resp_buf + used, resp, copy_len);
-            used += copy_len;
-            resp_buf[used] = 0;
-        }
+        ESP_LOGW(TAG, "%s response truncated to %u bytes", label, (unsigned int)(resp_len - 1));
     }
 
     esp_http_client_cleanup(client);
@@ -124,7 +175,7 @@ static esp_err_t backend_request(
         {
             ESP_LOGE(TAG, "%s HTTP %d (no body)", label, status);
         }
-        return ESP_ERR_INVALID_RESPONSE; 
+        return ESP_ERR_INVALID_RESPONSE;
     }
 
     return ESP_OK;
@@ -161,10 +212,10 @@ esp_err_t backend_get_config(const char *backend_hostname,
 }
 
 esp_err_t backend_post_report(const char *backend_hostname,
-                             const char *device_cert_pem,
-                             const char *device_key_pem,
-                             uint32_t config_version,
-                             bool *config_changed)
+                              const char *device_cert_pem,
+                              const char *device_key_pem,
+                              uint32_t config_version,
+                              bool *config_changed)
 {
     if (!backend_hostname || !device_cert_pem || !device_key_pem || !config_changed)
     {
@@ -201,11 +252,44 @@ esp_err_t backend_post_report(const char *backend_hostname,
         return err;
     }
 
-    if (strstr(response, "\"configChanged\":true") != NULL)
+    cJSON *response_json = cJSON_Parse(response);
+    if (response_json == NULL)
     {
-        *config_changed = true;
-        ESP_LOGI(TAG, "Server indicates config update required");
+        ESP_LOGW(TAG,
+                 "Reported version %" PRIu32 ", backend returned invalid JSON report response: %s",
+                 config_version,
+                 response);
+        return ESP_OK;
     }
+
+    cJSON *config_changed_json = cJSON_GetObjectItemCaseSensitive(response_json, "configChanged");
+    if (!cJSON_IsBool(config_changed_json))
+    {
+        ESP_LOGW(
+            TAG,
+            "Reported version %" PRIu32 ", backend did not confirm config status: %s",
+            config_version,
+            response);
+        cJSON_Delete(response_json);
+        return ESP_OK;
+    }
+
+    *config_changed = cJSON_IsTrue(config_changed_json);
+
+    if (*config_changed)
+    {
+        ESP_LOGW(TAG,
+                 "Reported version %" PRIu32 ", backend indicates config update required",
+                 config_version);
+    }
+    else
+    {
+        ESP_LOGI(TAG,
+                 "Reported version %" PRIu32 ", backend confirmed up to date",
+                 config_version);
+    }
+
+    cJSON_Delete(response_json);
 
     return ESP_OK;
 }

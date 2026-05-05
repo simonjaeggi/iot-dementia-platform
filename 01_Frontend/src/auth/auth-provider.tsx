@@ -1,14 +1,13 @@
 import React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { axiosInstance, getAxiosErrorMessage } from "@/lib/api";
+import { axiosInstance, endpoints, getAxiosErrorMessage, type User } from "@/lib/api";
 import { AuthContext } from "./auth-context";
 import { toast } from "sonner";
-import type { User } from "./zod/user.schema";
 
 
 async function fetchMe(): Promise<User | null> {
   try {
-    const res = await axiosInstance.get<User>("/api/auth/me");
+    const res = await axiosInstance.get<User>(endpoints.auth.me);
     return res.data;
   } catch {
     return null;
@@ -27,7 +26,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loginMutation = useMutation({
     mutationFn: async (vars: { email: string; password: string }) => {
-      await axiosInstance.post("/api/auth/login", vars);
+      await axiosInstance.post(endpoints.auth.login, vars);
     },
     onSuccess: async () => {
       toast.success("Login successful");
@@ -46,7 +45,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       accessCode: string;
       name: string;
     }) => {
-      await axiosInstance.post("/api/auth/register", vars);
+      await axiosInstance.post(endpoints.auth.register, vars);
     },
     onSuccess: async () => {
       toast.success("Registration successful");
@@ -60,7 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      await axiosInstance.post("/api/auth/logout");
+      await axiosInstance.post(endpoints.auth.logout);
     },
     onSuccess: async () => {
       toast.success("Logout successful");

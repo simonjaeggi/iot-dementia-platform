@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { MacIdentifierSchema } from "./mac-identifier.schema";
+import { MacAddressSchema } from "../../device/zod/mac-address.schema";
 
 export const CreateLocationBeaconSchema = z
   .object({
@@ -8,7 +8,7 @@ export const CreateLocationBeaconSchema = z
       .trim()
       .min(1, "Display name is required.")
       .max(255, "Display name cannot be longer than 255 characters."),
-    macIdentifier: MacIdentifierSchema,
+    macIdentifier: MacAddressSchema,
   })
   .strict();
 

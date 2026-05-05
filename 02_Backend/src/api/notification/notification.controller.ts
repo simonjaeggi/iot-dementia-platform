@@ -2,13 +2,16 @@ import { Context } from "hono";
 import { getUserIdFromJwt } from "../auth/auth.middleware";
 import {
   createUserEventSubscription,
+  deleteAllNotifications,
   deleteUserEventSubscription,
   getUserEventSubscriptions,
   getUserNotifications,
+  markAllNotificationsRead,
 } from "./notification.service";
 import { HTTPException } from "hono/http-exception";
-import { CreateSubscriptionSchema } from "./zod/subscription-create.schema";
+import { CreateSubscriptionSchema } from "./zod/create-subscription.schema";
 import { SubscriptionIdSchema } from "./zod/subscription-id.schema";
+import { GetUserNotificationsSchema } from "./zod/get-notification-by-user.schema";
 
 /**
  * Returns notifications for the authenticated user.
@@ -18,8 +21,22 @@ import { SubscriptionIdSchema } from "./zod/subscription-id.schema";
  */
 export async function notifications(c: Context) {
   const userId = getUserIdFromJwt(c);
-  const notifications = await getUserNotifications(userId);
-  return c.json({ notifications });
+  const dtoResult = GetUserNotificationsSchema.safeParse(c.req.query());
+
+  if (!dtoResult.success) {
+    throw new HTTPException(400, {
+      message: dtoResult.error.issues[0]?.message ?? "Invalid payload.",
+    });
+  }
+
+  const result = await getUserNotifications(
+    userId,
+    dtoResult.data.pageNumber,
+    dtoResult.data.pageSize,
+    dtoResult.data.query,
+  );
+
+  return c.json(result);
 }
 
 /**
@@ -94,4 +111,28 @@ export async function unsubscribeFromNotifications(c: Context) {
   }
 
   return c.json({ ok: true });
+}
+
+/**
+ * Marks all unread notifications of the authenticated user as read.
+ * @param c HTTP context
+ * @returns HTTP JSON response containing the number of marked rows.
+ * @throws {HTTPException} 401 invalid user context
+ */
+export async function markAllAsRead(c: Context) {
+  const userId = getUserIdFromJwt(c);
+  const markedRead = await markAllNotificationsRead(userId);
+  return c.json({ markedRead });
+}
+
+/**
+ * Deletes all notifications of the authenticated user.
+ * @param c HTTP context
+ * @returns HTTP JSON response containing the number of deleted rows.
+ * @throws {HTTPException} 401 invalid user context
+ */
+export async function removeAll(c: Context) {
+  const userId = getUserIdFromJwt(c);
+  const deleted = await deleteAllNotifications(userId);
+  return c.json({ deleted });
 }

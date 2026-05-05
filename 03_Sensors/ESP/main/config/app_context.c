@@ -1,11 +1,13 @@
 #include "app_context.h"
 #include "app_config.h"
 
+
 static char wifi_ssid[WIFI_SSID_MAX_LEN];
 static char wifi_password[WIFI_PASSWORD_MAX_LEN];
 static char backend_host[BACKEND_HOSTNAME_MAX_LEN];
 static char device_name[DEVICE_NAME_MAX_LEN];
 static uint32_t boot_id = 0;
+static device_config_t device_cfg;
 
 char *app_context_wifi_ssid(void)
 {
@@ -55,4 +57,19 @@ uint32_t app_context_boot_id(void)
 void app_context_set_boot_id(uint32_t value)
 {
     boot_id = value;
+}
+
+const device_config_t *app_context_device_cfg(void)
+{
+    return &device_cfg;
+}
+
+void app_context_set_device_cfg(const device_config_t *new_device_cfg)
+{
+    if (new_device_cfg == NULL)
+    {
+        return;
+    }
+
+    device_cfg = *new_device_cfg;
 }

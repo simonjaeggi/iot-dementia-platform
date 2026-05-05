@@ -1,6 +1,6 @@
 /**
  * @file cert_helper.c
- * @brief Helper functions for CSR and key generation.
+ * @brief CSR and key-generation helpers.
  */
 
 #include "cert_helper.h"
@@ -19,10 +19,10 @@
 /**
  * @brief Free mbedTLS contexts used during CSR/key generation.
  *
- * @param ent Entropy context
- * @param rng CTR-DRBG context
- * @param key PK context
- * @param req CSR writer context
+ * @param ent Entropy context.
+ * @param rng CTR-DRBG context.
+ * @param key PK context.
+ * @param req CSR writer context.
  */
 static void cleanup(mbedtls_entropy_context *ent,
                     mbedtls_ctr_drbg_context *rng,
@@ -35,7 +35,7 @@ static void cleanup(mbedtls_entropy_context *ent,
     mbedtls_entropy_free(ent);
 }
 
-esp_err_t cert_helper_gen_csr_from_key_pem(const char *device_cn,
+esp_err_t gen_csr_from_key(const char *device_cn,
                                            const unsigned char *key_pem, size_t key_pem_len,
                                            unsigned char *out_csr_pem, size_t out_csr_pem_size)
 {
@@ -103,7 +103,7 @@ esp_err_t cert_helper_gen_csr_from_key_pem(const char *device_cn,
     return ESP_OK;
 }
 
-esp_err_t cert_helper_gen_key_and_csr_pem(const char *device_cn,
+esp_err_t gen_key_and_csr(const char *device_cn,
                                           unsigned char *out_key_pem, size_t out_key_pem_size,
                                           unsigned char *out_csr_pem, size_t out_csr_pem_size)
 {

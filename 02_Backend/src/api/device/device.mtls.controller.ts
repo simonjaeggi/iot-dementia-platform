@@ -9,7 +9,7 @@ import { HTTPException } from "hono/http-exception";
 import { EventSchema } from "../event/zod/event.schema";
 import { createEvent } from "../event/event.service";
 import z from "zod";
-import { getAuthorisedDeviceFingerprint } from "../auth/auth.middleware";
+import { getDeviceFingerprintFromContext } from "../auth/auth.middleware";
 
 // todo, this is fine as long as the object is parsed again later, but could lead to bugs if the backend does
 // not cleanly overwrite the sensor object.
@@ -24,7 +24,8 @@ const BodySchema = z.object({ data: z.looseObject({}) });
  * @returns JSON containing { ok, configChanged }
  */
 export async function report(c: Context) {
-  const fingerprint = getAuthorisedDeviceFingerprint(c);
+  const fingerprint = getDeviceFingerprintFromContext(c);
+  await ensureDeviceExistsAndUpdateLastSeen(fingerprint);
 
   const body = await c.req.json();
   const dtoResult = DeviceReportSchema.safeParse(body);
@@ -34,8 +35,6 @@ export async function report(c: Context) {
     });
   }
   const dto = dtoResult.data;
-
-  await ensureDeviceExistsAndUpdateLastSeen(fingerprint);
 
   const upToDate = await isDesiredVersion(fingerprint, dto.version);
 
@@ -53,7 +52,8 @@ export async function report(c: Context) {
  * @throws {HTTPException} 500 Failed to store event to db
  */
 export async function createDeviceEvent(c: Context) {
-  const fingerprint = getAuthorisedDeviceFingerprint(c);
+  const fingerprint = getDeviceFingerprintFromContext(c);
+  await ensureDeviceExistsAndUpdateLastSeen(fingerprint);
 
   const body = await c.req.json().catch(() => null);
   const bodyResult = BodySchema.safeParse(body);
@@ -94,7 +94,7 @@ export async function createDeviceEvent(c: Context) {
  * @throws {HTTPException} 404 if no device config found.
  */
 export async function config(c: Context) {
-  const clientFingerprint = getAuthorisedDeviceFingerprint(c);
+  const clientFingerprint = getDeviceFingerprintFromContext(c);
   const config = await getDeviceConfig(clientFingerprint);
   if (!config) {
     throw new HTTPException(404, { message: "No config found for device." });

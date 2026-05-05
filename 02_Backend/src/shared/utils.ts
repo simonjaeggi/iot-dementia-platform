@@ -41,3 +41,33 @@ export function formatDurationFromSeconds(seconds: number): string {
 
   return parts.join(" ");
 }
+
+/**
+ * Returns the patient label used in notification texts.
+ * Falls back to a neutral label when no patient name is configured.
+ * @param patientName configured patient first name / surname
+ * @returns patient label for notifications
+ */
+export function formatPatientLabel(patientName: string | null | undefined): string {
+  const trimmedName = patientName?.trim();
+  return trimmedName ? trimmedName : "The patient";
+}
+
+/**
+ * Returns the device reference used in notification texts.
+ * Uses the configured device name when available, otherwise a short alias.
+ * @param deviceName configured device name
+ * @param deviceFingerprint device fingerprint for alias generation
+ * @returns device label for notifications
+ */
+export function formatDeviceReference(
+  deviceName: string | null | undefined,
+  deviceFingerprint: string,
+): string {
+  const trimmedName = deviceName?.trim();
+  if (trimmedName) {
+    return `device ${trimmedName}`;
+  }
+
+  return `device ${deviceFingerprint.slice(0, 6)}`;
+}

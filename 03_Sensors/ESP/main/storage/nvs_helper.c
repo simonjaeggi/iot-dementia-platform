@@ -1,7 +1,6 @@
 /**
  * @file nvs_helper.c
- * @brief This file contains NVS helper functions for simple read/write functionality.
- * Acts as a wrapper for esp idf nvs library to hide some complexity.
+ * @brief Lightweight wrappers around the ESP-IDF NVS API.
  */
 
 #include "nvs_flash.h"
@@ -12,6 +11,28 @@
 
 static bool nvs_ready = false;
 static const char *TAG = "nvs_helper";
+
+static uint32_t float_to_u32(float value)
+{
+    union
+    {
+        float f;
+        uint32_t u;
+    } bits = {.f = value};
+
+    return bits.u;
+}
+
+static float u32_to_float(uint32_t value)
+{
+    union
+    {
+        float f;
+        uint32_t u;
+    } bits = {.u = value};
+
+    return bits.f;
+}
 
 esp_err_t nvs_init(void)
 {
@@ -156,5 +177,30 @@ esp_err_t nvs_get_int(const char *key, uint32_t *out)
         *out = 0;
         return ESP_FAIL;
     }
+    return ESP_OK;
+}
+
+esp_err_t nvs_set_float(const char *key, float value)
+{
+    return nvs_set_int(key, float_to_u32(value));
+}
+
+esp_err_t nvs_get_float(const char *key, float *out)
+{
+    if (!out)
+    {
+        ESP_LOGE(TAG, "nvs_get_float invalid args");
+        return ESP_FAIL;
+    }
+
+    uint32_t raw = 0;
+    esp_err_t err = nvs_get_int(key, &raw);
+    if (err != ESP_OK)
+    {
+        *out = 0.0f;
+        return err;
+    }
+
+    *out = u32_to_float(raw);
     return ESP_OK;
 }

@@ -1,4 +1,4 @@
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, inArray } from "drizzle-orm";
 import { DrizzleQueryError } from "drizzle-orm/errors";
 import { DatabaseError } from "pg";
 import { db } from "../../db/db";
@@ -67,6 +67,51 @@ export async function deleteLocationBeacon(
     .returning();
 
   return deleted[0] ?? null;
+}
+
+/**
+ * Utility helper that checks a list of beacon readings against the database beacon table.
+ * The MAC address of the strongest beacon reading that matches with the database is returned.
+ * @param beaconsFromEvent
+ * @returns
+ */
+export async function getStrongestKnownBeacon(
+  beaconsFromEvent: {
+    id: string;
+    signalStrengthDbm: number;
+  }[],
+): Promise<string | undefined> {
+  const beaconMacs = [...new Set(beaconsFromEvent.map((beacon) => beacon.mac))];
+
+  if (beaconMacs.length === 0) {
+    return undefined;
+  }
+
+  const knownBeacons = await db
+    .select({ macIdentifier: locationBeacons.macIdentifier })
+    .from(locationBeacons)
+    .where(inArray(locationBeacons.macIdentifier, beaconMacs));
+
+  const knownBeaconMacs = new Set(
+    knownBeacons.map((beacon) => beacon.macIdentifier),
+  );
+
+  let strongestKnownBeaconMac: string | undefined;
+  let strongestSignalStrengthDbm: number | undefined;
+
+  for (const beacon of beaconsFromEvent) {
+    if (!knownBeaconMacs.has(beacon.id)) continue;
+
+    if (
+      strongestSignalStrengthDbm === undefined ||
+      beacon.signalStrengthDbm > strongestSignalStrengthDbm
+    ) {
+      strongestKnownBeaconMac = beacon.id;
+      strongestSignalStrengthDbm = beacon.signalStrengthDbm;
+    }
+  }
+
+  return strongestKnownBeaconMac;
 }
 
 /**
