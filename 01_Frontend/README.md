@@ -2,18 +2,37 @@
 
 React + TypeScript + Vite app.
 
-## Folder structure
+## Folder Structure
 
+```text
+.
+├── src/
+│   ├── app/
+│   │   ├── auth/
+│   │   ├── dashboard/
+│   │   ├── devices/
+│   │   ├── events/
+│   │   ├── notification-inbox/
+│   │   └── settings/
+│   ├── auth/
+│   ├── components/
+│   │   └── ui/
+│   ├── lib/
+│   │   └── api/
+│   ├── App.tsx
+│   └── main.tsx
+├── Dockerfile
+├── package.json
+├── vite.config.ts
+└── README.md
 ```
-src/
-├── app/          # route-level pages (dashboard, devices, events, notification-inbox, settings)
-├── auth/         # auth context, provider, and route guard
-├── components/   # shared components (+ ui/ for shadcn primitives)
-├── hooks/        # shared React hooks
-└── lib/
-    ├── api/      # backend contract — endpoints, Zod schemas, enum constants
-    │             #   import everything from "@/lib/api" (barrel)
-    ├── detail-formatters.ts
-    └── utils.ts
-```
+
+## Folder Notes
+
+- `src/app`: route-level pages for the main application areas
+- `src/auth`: authentication context, provider, hooks, and route guard
+- `src/components`: shared layout and application components
+- `src/components/ui`: shadcn UI primitives
+- `src/lib`: shared helpers, formatters, and frontend utilities
+- `src/lib/api`: backend API client, endpoints, Zod schemas, and enum constants
 
