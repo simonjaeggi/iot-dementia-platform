@@ -38,17 +38,6 @@ type SubscriptionCardShellProps = NotificationCardProps & {
   children?: ReactNode;
 };
 
-function formatDeviceLabel(device: DeviceSummary) {
-  const shortenedFingerprint =
-    `${device.certFingerprintSha256.slice(0, 8)}...${device.certFingerprintSha256.slice(-6)}`;
-
-  if (!device.name?.trim()) {
-    return shortenedFingerprint;
-  }
-
-  return `${device.name.trim()} (${shortenedFingerprint})`;
-}
-
 export function SubscriptionCardShell({
   type,
   title,
@@ -144,7 +133,7 @@ export function SubscriptionCardShell({
                   key={device.certFingerprintSha256}
                   value={device.certFingerprintSha256}
                 >
-                  {formatDeviceLabel(device)}
+                  {device.name?.trim() || "Unnamed device"}
                 </SelectItem>
               ))}
             </SelectContent>

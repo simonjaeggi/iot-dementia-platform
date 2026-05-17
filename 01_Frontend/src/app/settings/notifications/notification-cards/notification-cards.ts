@@ -19,7 +19,7 @@ export {
 export {
   AccessCodeNotificationCard,
   LoginNotificationCard,
-  PasswordChangeNotificationCard,
   RegisterNotificationCard,
   RoleChangeNotificationCard,
+  UserDeleteNotificationCard,
 } from "./user-activity-notification-cards";

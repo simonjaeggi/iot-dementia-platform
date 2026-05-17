@@ -27,19 +27,15 @@ export function RegisterNotificationCard(props: NotificationCardProps) {
   return <SimpleNotificationCard {...props} type="register" title="Register" />;
 }
 
-export function PasswordChangeNotificationCard(props: NotificationCardProps) {
-  return (
-    <SimpleNotificationCard
-      {...props}
-      type="passwordChange"
-      title="Password change"
-    />
-  );
-}
-
 export function RoleChangeNotificationCard(props: NotificationCardProps) {
   return (
     <SimpleNotificationCard {...props} type="roleChange" title="Role change" />
+  );
+}
+
+export function UserDeleteNotificationCard(props: NotificationCardProps) {
+  return (
+    <SimpleNotificationCard {...props} type="userDelete" title="User delete" />
   );
 }
 

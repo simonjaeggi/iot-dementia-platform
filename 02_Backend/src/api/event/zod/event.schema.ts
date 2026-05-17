@@ -146,12 +146,27 @@ const RoleChangeEvent = UserAuditBase.extend({
   }),
 });
 
+const UserDeleteEvent = UserAuditBase.extend({
+  type: z.literal("userDelete"),
+  data: UserAuditBase.shape.data.extend({
+    deletedUser: EventUserSchema,
+  }),
+});
+
+const AccessCodeAction = z.enum([
+  "generated",
+  "invalidated",
+  "redeemed",
+]);
+
+export type AccessCodeActionType = z.infer<typeof AccessCodeAction>;
+
 const AccessCodeEvent = BaseEvent.extend({
   type: z.literal("accessCode"),
   data: z.object({
     user: EventUserSchema,
-    action: z.enum(["generated", "invalidated", "redeemed"]),
-    codeId: z.string(),
+    action: AccessCodeAction,
+    codeId: z.number().int().positive(),
   }),
 });
 
@@ -174,9 +189,10 @@ export const EventSchema = z.discriminatedUnion("type", [
   RegisterEvent,
   PasswordChangeEvent,
   RoleChangeEvent,
+  UserDeleteEvent,
   AccessCodeEvent,
   SystemBootEvent,
 ]);
 
 export type EventDto = z.infer<typeof EventSchema>;
-export type NoiseLevelEvent = z.infer<typeof NoiseLevelEvent>
+export type NoiseLevelEvent = z.infer<typeof NoiseLevelEvent>;

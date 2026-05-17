@@ -1,9 +1,21 @@
 import { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
-import { createEvent, getEventById, getEvents } from "./event.service";
+import {
+  createEvent,
+  getEventById,
+  getEvents,
+  getEventsByTypeAndLastXDays,
+  getEventsByTypeAndLastXSeconds,
+  getLatestEventByType,
+} from "./event.service";
 import { EventSchema } from "./zod/event.schema";
 import { EventIdSchema } from "./zod/event-id.schema";
-import { GetEventsSchema } from "./zod/get-events.schema";
+import {
+  GetEventsByTypeAndDaysSchema,
+  GetEventsByTypeAndSecondsSchema,
+  GetEventsSchema,
+  GetLatestEventByTypeSchema,
+} from "./zod/get-events.schema";
 
 /**
  * Creates an event.
@@ -50,6 +62,67 @@ export async function events(c: Context) {
   );
 
   return c.json(result);
+}
+
+/**
+ * Returns events by type for the last x days.
+ * @param c HTTP context
+ * @returns HTTP JSON response containing a list of events.
+ * @throws {HTTPException} 400 payload invalid
+ */
+export async function eventsByTypeAndDays(c: Context) {
+  const dtoResult = GetEventsByTypeAndDaysSchema.safeParse(c.req.query());
+  if (!dtoResult.success) {
+    throw new HTTPException(400, {
+      message: dtoResult.error.issues[0]?.message ?? "Invalid payload.",
+    });
+  }
+  return c.json(await getEventsByTypeAndLastXDays(dtoResult.data.days, dtoResult.data.eventType));
+}
+
+/**
+ * Returns events by type for the last x seconds.
+ * @param c HTTP context
+ * @returns HTTP JSON response containing a list of events.
+ * @throws {HTTPException} 400 payload invalid
+ */
+export async function eventsByTypeAndSeconds(c: Context) {
+  const dtoResult = GetEventsByTypeAndSecondsSchema.safeParse(c.req.query());
+  if (!dtoResult.success) {
+    throw new HTTPException(400, {
+      message: dtoResult.error.issues[0]?.message ?? "Invalid payload.",
+    });
+  }
+  return c.json(
+    await getEventsByTypeAndLastXSeconds(
+      dtoResult.data.eventType,
+      dtoResult.data.seconds,
+    ),
+  );
+}
+
+/**
+ * Returns the latest event by type.
+ * @param c HTTP context
+ * @returns HTTP JSON response containing the event.
+ * @throws {HTTPException} 400 payload invalid
+ * @throws {HTTPException} 404 event not found
+ */
+export async function latestEventByType(c: Context) {
+  const dtoResult = GetLatestEventByTypeSchema.safeParse(c.req.query());
+
+  if (!dtoResult.success) {
+    throw new HTTPException(400, {
+      message: dtoResult.error.issues[0]?.message ?? "Invalid payload.",
+    });
+  }
+
+  const event = await getLatestEventByType(dtoResult.data.type);
+  if (!event) {
+    throw new HTTPException(404, { message: "Event not found." });
+  }
+
+  return c.json(event);
 }
 
 /**

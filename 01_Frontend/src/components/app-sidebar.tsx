@@ -4,7 +4,7 @@ import {
   IconDeviceIpadCode,
   IconHome,
   IconInbox,
-  IconMap,
+  IconLayoutDashboard,
 } from "@tabler/icons-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -28,6 +28,11 @@ const data = {
   },
   navMain: [
     {
+      title: "Dashboard",
+      url: "/dashboard",
+      icon: IconLayoutDashboard,
+    },
+    {
       title: "Devices",
       url: "/devices",
       icon: IconDeviceIpadCode,
@@ -42,11 +47,6 @@ const data = {
       title: "Notification inbox",
       url: "/notifications",
       icon: IconInbox,
-    },
-    {
-      title: "Map",
-      url: "/map",
-      icon: IconMap,
     },
   ],
   

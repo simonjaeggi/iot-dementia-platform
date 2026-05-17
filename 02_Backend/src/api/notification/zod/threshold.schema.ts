@@ -147,6 +147,7 @@ const ThresholdConfigSchemaBySubscriptionType: Record<
   register: z.null(),
   passwordChange: z.null(),
   roleChange: z.null(),
+  userDelete: z.null(),
   accessCode: z.null(),
   outdoorGeofenceCrossed: StateGeofenceThresholdConfigSchema,
   fallDetection: FallDetectionThresholdConfigSchema,

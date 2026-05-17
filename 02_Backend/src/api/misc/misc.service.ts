@@ -3,7 +3,12 @@ import { DrizzleQueryError } from "drizzle-orm/errors";
 import { DatabaseError } from "pg";
 import { db } from "../../db/db";
 import { ExistingLocationBeacon, ExistingPatient } from "../../db/types";
-import { locationBeacons, patients } from "../../db/schema";
+import {
+  devices,
+  infrastructureStates,
+  locationBeacons,
+  patients,
+} from "../../db/schema";
 import { CreatePatientDto } from "./zod/create-patient.schema";
 import { CreateLocationBeaconDto } from "./zod/create-location-beacon.schema";
 import { LocationBeaconId } from "./zod/location-beacon-id.schema";
@@ -15,6 +20,14 @@ export class PatientAlreadyExistsError extends Error {
   }
 }
 
+export type InfrastructureStateSummary = {
+  fingerprint: string;
+  deviceName: string | null;
+  status: string;
+  statusSince: Date;
+  lastObserved: Date;
+};
+
 /**
  * Returns all location beacons.
  * @returns {Promise<ExistingLocationBeacon[]>} Beacon list
@@ -24,6 +37,32 @@ export async function getLocationBeacons(): Promise<ExistingLocationBeacon[]> {
     .select()
     .from(locationBeacons)
     .orderBy(asc(locationBeacons.displayName), asc(locationBeacons.id));
+}
+
+/**
+ * Returns current infrastructure states enriched with device names.
+ * @returns {Promise<InfrastructureStateSummary[]>} Infrastructure state list
+ */
+export async function getInfrastructureStates(): Promise<
+  InfrastructureStateSummary[]
+> {
+  return db
+    .select({
+      fingerprint: infrastructureStates.deviceCertFingerprintSha256,
+      deviceName: devices.name,
+      status: infrastructureStates.status,
+      statusSince: infrastructureStates.statusSince,
+      lastObserved: infrastructureStates.lastObservedAt,
+    })
+    .from(infrastructureStates)
+    .leftJoin(
+      devices,
+      eq(
+        infrastructureStates.deviceCertFingerprintSha256,
+        devices.certFingerprintSha256,
+      ),
+    )
+    .orderBy(asc(devices.name), asc(infrastructureStates.deviceCertFingerprintSha256));
 }
 
 /**
@@ -81,7 +120,7 @@ export async function getStrongestKnownBeacon(
     signalStrengthDbm: number;
   }[],
 ): Promise<string | undefined> {
-  const beaconMacs = [...new Set(beaconsFromEvent.map((beacon) => beacon.mac))];
+  const beaconMacs = [...new Set(beaconsFromEvent.map((beacon) => beacon.id))];
 
   if (beaconMacs.length === 0) {
     return undefined;

@@ -2,6 +2,7 @@ import { eq, getTableColumns } from "drizzle-orm";
 import { db } from "../../../db/db";
 import { devices, indoorLocationStates, locationBeacons } from "../../../db/schema";
 import {
+  claimNotificationMarker,
   createNotificationsForUsers,
   getSubscriptionsByType,
   groupSubscriptionsByUser,
@@ -17,7 +18,6 @@ import {
   ExistingUserEventSubscription,
   ExistingIndoorLocationState,
 } from "../../../db/types";
-import { hasSubscriptionTriggeredNotificationSinceTime } from "../stateless/stateless-notification.service";
 import { getPatient } from "../../misc/misc.service";
 
 type IndoorLocationStateWithLabels = ExistingIndoorLocationState & {
@@ -76,14 +76,10 @@ export async function processIndoorLocationNotifications(
     }
 
     const pendingSubscriptions: ExistingUserEventSubscription[] = [];
+    const triggerKey = `sameRoomTooLong:dev=${state.deviceCertFingerprintSha256}:beaconSince=${beaconSince.toISOString()}`;
     // dismiss if subscription has already caused a notification since the person is in the same room
     for (const subscription of dueSubscriptions) {
-      if (
-        await hasSubscriptionTriggeredNotificationSinceTime(
-          subscription.id,
-          beaconSince,
-        )
-      ) {
+      if (!(await claimNotificationMarker(subscription.id, triggerKey))) {
         continue;
       }
 
@@ -131,11 +127,11 @@ function buildIndoorLocationNotificationContent(
   );
 
   return {
-    title: "Same room too long",
+    title: `${patientLabel} has stayed in ${roomLabel} too long`,
     message:
-      `${patientLabel} (using ${deviceLabel}) has remained in ${roomLabel} since ` +
+      `${patientLabel} has been in ${roomLabel} since ` +
       `${formatSwissTimestamp(beaconSince)} ` +
-      `(${formatDurationFromSeconds(elapsedSeconds)}).`,
+      `(${formatDurationFromSeconds(elapsedSeconds)}), based on ${deviceLabel}.`,
   };
 }
 

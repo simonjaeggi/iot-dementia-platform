@@ -9,6 +9,28 @@ export const GetEventsSchema = z
   })
   .strict();
 
-export type GetEventsDto = z.infer<
-  typeof GetEventsSchema
->;
+export type GetEventsDto = z.infer<typeof GetEventsSchema>;
+
+export const GetLatestEventByTypeSchema = z
+  .object({
+    type: EventTypeSchema,
+  })
+  .strict();
+
+export const GetEventsByTypeAndDaysSchema = z.object({
+  days: z
+    .coerce.number()
+    .int()
+    .positive()
+    .max(30, "Events can only be fetched by type for up to the last 30 days."),
+  eventType: EventTypeSchema,
+});
+
+export const GetEventsByTypeAndSecondsSchema = z.object({
+  seconds: z
+    .coerce.number()
+    .int()
+    .positive()
+    .max(86_400, "Events can only be fetched by type for up to the last day."),
+  eventType: EventTypeSchema,
+});

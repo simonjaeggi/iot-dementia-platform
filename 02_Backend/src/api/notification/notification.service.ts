@@ -4,11 +4,14 @@ import {
   desc,
   eq,
   ilike,
+  isNotNull,
   isNull,
+  lt,
   or,
 } from "drizzle-orm";
 import { db } from "../../db/db";
 import {
+  notificationMarkers,
   userEventSubscriptions,
   userNotificationTransport,
   userNotifications,
@@ -297,27 +300,44 @@ export async function createNotificationsForUsers(
  * User id and notification id must match.
  * @param userId user id
  * @param notificationId notification id
- * @returns {Promise<ExistingNotification | null>} Updated notification on update success, null otherwise (including already marked).
+ * @returns {Promise<ExistingNotification | null>} Notification after marking, or null if not found.
  */
 export async function markNotificationRead(
   userId: number,
   notificationId: number,
 ): Promise<ExistingNotification | null> {
   const now = new Date();
+  const [notification] = await db
+    .select()
+    .from(userNotifications)
+    .where(
+      and(
+        eq(userNotifications.userId, userId),
+        eq(userNotifications.id, notificationId),
+      ),
+    )
+    .limit(1);
 
-  const rows = await db
+  if (!notification) {
+    return null;
+  }
+
+  if (notification.readAt) {
+    return notification;
+  }
+
+  const [updated] = await db
     .update(userNotifications)
     .set({ readAt: now })
     .where(
       and(
         eq(userNotifications.userId, userId),
         eq(userNotifications.id, notificationId),
-        isNull(userNotifications.readAt),
       ),
     )
     .returning();
 
-  return rows[0];
+  return updated ?? null;
 }
 
 /**
@@ -357,4 +377,54 @@ export async function getSubscriptionsByType(
     .from(userEventSubscriptions)
     .where(eq(userEventSubscriptions.type, type));
   return subscriptionRows;
+}
+
+
+/**
+ * Creates a notification marker for a subscription and trigger key if none exist.
+ * Returns true if the marker was inserted (no prev notification sent),
+ * false if a marker for the same pair of (subscription, trigger) already exists.
+ * @param subscriptionId user event subscription id
+ * @param triggerKey deterministic string identifying the alert occasion
+ * @param expiresAt optional expiration, for timed deduplication.
+ */
+export async function claimNotificationMarker(
+  subscriptionId: number,
+  triggerKey: string,
+  expiresAt: Date | null = null,
+): Promise<boolean> {
+  const inserted = await db
+    .insert(notificationMarkers)
+    .values({
+      userEventSubscriptionId: subscriptionId,
+      triggerKey,
+      expiresAt,
+    })
+    .onConflictDoNothing({
+      target: [
+        notificationMarkers.userEventSubscriptionId,
+        notificationMarkers.triggerKey,
+      ],
+    })
+    .returning({ id: notificationMarkers.id });
+
+  return inserted.length > 0;
+}
+
+/**
+ * Deletes expired notification markers.
+ * @returns deleted row count.
+ */
+export async function deleteExpiredNotificationMarkers(): Promise<number> {
+  const deleted = await db
+    .delete(notificationMarkers)
+    .where(
+      and(
+        isNotNull(notificationMarkers.expiresAt),
+        lt(notificationMarkers.expiresAt, new Date()),
+      ),
+    )
+    .returning({ id: notificationMarkers.id });
+
+  return deleted.length;
 }

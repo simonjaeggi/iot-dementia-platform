@@ -8,6 +8,7 @@ import { LocationBeacons } from "./app/settings/location-beacons/location-beacon
 import { UserRoles } from "./app/settings/user-roles/user-roles";
 import { AccessCodes } from "./app/settings/access-codes/access-codes";
 import { Patient } from "./app/settings/patient/patient";
+import { MyAccount } from "./app/settings/my-account/my-account";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { LoginForm } from "./app/auth/login-form";
 import { RequireAuth } from "./auth/require-auth";
@@ -39,6 +40,10 @@ export default function App() {
 
       <Route
         path="/"
+        element={<Navigate to="/dashboard" replace />}
+      />
+      <Route
+        path="/dashboard"
         element={
           <RequireAuth>
             <Dashboard />
@@ -78,6 +83,14 @@ export default function App() {
         }
       />
       <Route
+        path="/settings/account"
+        element={
+          <RequireAuth>
+            <MyAccount />
+          </RequireAuth>
+        }
+      />
+      <Route
         path="/settings/notifications"
         element={
           <RequireAuth>
@@ -96,7 +109,7 @@ export default function App() {
       <Route
         path="/settings/users"
         element={
-          <RequireAuth>
+          <RequireAuth requiredRole="admin">
             <UserRoles />
           </RequireAuth>
         }
@@ -104,7 +117,7 @@ export default function App() {
       <Route
         path="/settings/access-codes"
         element={
-          <RequireAuth>
+          <RequireAuth requiredRole="admin">
             <AccessCodes />
           </RequireAuth>
         }

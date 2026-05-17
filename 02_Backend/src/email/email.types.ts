@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const EmailProviderSchema = z.enum(["sendgrid"]);
+export const EmailProviderSchema = z.enum(["sendgrid", "resend"]);
 
 export type EmailProvider = z.infer<typeof EmailProviderSchema>;
 

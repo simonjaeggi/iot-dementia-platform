@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatSecondsToHoursMinutesSeconds, labelToTitleCase } from "@/lib/detail-formatters";
+import { useDeviceDisplayName } from "@/lib/device-helpers";
 import {
   supportsDeviceSelection,
   type DeviceSummary,
@@ -57,7 +58,6 @@ function formatThresholdConfig(
 
 export function NotificationSubscriptionList({
   subscriptions,
-  availableDevices,
   isPending,
   onUnsubscribe,
 }: NotificationSubscriptionListProps) {
@@ -76,17 +76,7 @@ export function NotificationSubscriptionList({
           subscription.thresholdConfig,
           subscription.type,
         );
-        const scopedDevice = availableDevices.find(
-          (device) =>
-            device.certFingerprintSha256 ===
-            subscription.deviceCertFingerprintSha256,
-        );
-        const deviceScopeLabel = !supportsDeviceSelection(subscription.type)
-          ? null
-          : subscription.deviceCertFingerprintSha256 === null
-            ? "All devices"
-            : scopedDevice?.name?.trim() ||
-              `${subscription.deviceCertFingerprintSha256.slice(0, 8)}...${subscription.deviceCertFingerprintSha256.slice(-6)}`;
+        const shouldShowDeviceScope = supportsDeviceSelection(subscription.type);
 
         return (
           <div
@@ -103,8 +93,14 @@ export function NotificationSubscriptionList({
                 <Badge variant="outline">
                   {labelToTitleCase(subscription.deliveryMethod)}
                 </Badge>
-                {deviceScopeLabel ? (
-                  <Badge variant="outline">{deviceScopeLabel}</Badge>
+                {shouldShowDeviceScope ? (
+                  subscription.deviceCertFingerprintSha256 === null ? (
+                    <Badge variant="outline">All devices</Badge>
+                  ) : (
+                    <DeviceScopeBadge
+                      fingerprint={subscription.deviceCertFingerprintSha256}
+                    />
+                  )
                 ) : null}
               </div>
               {thresholdSummary ? (
@@ -126,4 +122,10 @@ export function NotificationSubscriptionList({
       })}
     </div>
   );
+}
+
+function DeviceScopeBadge({ fingerprint }: { fingerprint: string }) {
+  const deviceName = useDeviceDisplayName(fingerprint);
+
+  return <Badge variant="outline">{deviceName}</Badge>;
 }

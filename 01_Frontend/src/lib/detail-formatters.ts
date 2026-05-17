@@ -1,18 +1,51 @@
-export function formatDateTime(value: string | null, emptyFallback = "Never") {
+function parseDate(value: string | null) {
   if (!value) {
-    return emptyFallback;
+    return null;
   }
 
   const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
 
-  if (Number.isNaN(date.getTime())) {
-    return value;
+export function formatDate(
+  value: string | null,
+  options: Intl.DateTimeFormatOptions,
+  emptyFallback = "Never",
+) {
+  const date = parseDate(value);
+
+  if (!date) {
+    return value ?? emptyFallback;
   }
 
-  return date.toLocaleString(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
+  return date.toLocaleString(undefined, options);
+}
+
+export function formatDateTime(value: string | null, emptyFallback = "Never") {
+  return formatDate(
+    value,
+    {
+      dateStyle: "medium",
+      timeStyle: "short",
+    },
+    emptyFallback,
+  );
+}
+
+export function formatChartDate(value: string, includeTime = false) {
+  return formatDate(value, {
+    month: "short",
+    day: "numeric",
+    ...(includeTime ? { hour: "numeric" } : {}),
   });
+}
+
+export function formatNumberWithUnit(
+  value: number,
+  unit?: string,
+  precision = 1,
+) {
+  return `${value.toFixed(precision)}${unit ? ` ${unit}` : ""}`;
 }
 
 export function formatJson(value: unknown) {
@@ -62,7 +95,9 @@ export function formatDurationToSeconds(
   return Math.round(unit === "hours" ? amount * 3600 : amount * 60);
 }
 
-export function formatSecondsToHoursMinutesSeconds(durationSeconds: number): string {
+export function formatSecondsToHoursMinutesSeconds(
+  durationSeconds: number,
+): string {
   const roundedSeconds = Math.max(0, Math.round(durationSeconds));
   const hours = Math.floor(roundedSeconds / 3600);
   const minutes = Math.floor((roundedSeconds % 3600) / 60);
@@ -82,4 +117,8 @@ export function formatSecondsToHoursMinutesSeconds(durationSeconds: number): str
   }
 
   return parts.join(" ");
+}
+
+export function formatTime(value: Date) {
+  return value.toLocaleString([], { hour: "2-digit", minute: "2-digit" });
 }

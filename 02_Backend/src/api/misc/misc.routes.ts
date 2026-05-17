@@ -5,6 +5,7 @@ import { requireAdmin } from "../auth/auth.middleware";
 import {
   createLocationBeacon,
   createPatient,
+  infrastructureStates,
   locationBeacons,
   patient,
   removeLocationBeacon,
@@ -16,6 +17,7 @@ export const miscRoutes = new Hono();
 miscRoutes.use("*", jwt(jwtOptions));
 
 miscRoutes.get("/location-beacon", locationBeacons);
+miscRoutes.get("/infrastructure-states", infrastructureStates);
 miscRoutes.get("/patient", patient);
 
 miscRoutes.use("*", requireAdmin());

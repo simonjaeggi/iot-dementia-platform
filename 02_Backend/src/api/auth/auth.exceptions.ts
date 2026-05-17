@@ -25,3 +25,21 @@ export class CreateInitialAccessCodeError extends Error {
     this.name = "CreateInitialAccessCodeError";
   }
 }
+
+export class DemoteOnlyAdminError extends Error {
+  constructor(
+    message = "Failed to demote user with admin role. At least one admin needs to remain in the system.",
+  ) {
+    super(message);
+    this.name = "DemoteOnlyAdminError";
+  }
+}
+
+export class DeleteOnlyAdminError extends Error {
+  constructor(
+    message = "Failed to delete user with admin role. At least one admin needs to remain in the system.",
+  ) {
+    super(message);
+    this.name = "DeleteOnlyAdminError";
+  }
+}

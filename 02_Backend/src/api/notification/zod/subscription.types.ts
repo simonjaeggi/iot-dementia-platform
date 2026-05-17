@@ -12,6 +12,7 @@ const statelessSubscriptionTypeValues = [
   "register",
   "passwordChange",
   "roleChange",
+  "userDelete",
   "accessCode",
 ] as const;
 
@@ -21,6 +22,13 @@ const statefulSubscriptionTypeValues = [
   "panicDetection",
   "sameRoomTooLong",
   "infrastructureStatusTooLong",
+] as const;
+
+const rateLimitedSubscriptionTypeValues = [
+  "temperature",
+  "humidity",
+  "lightIntensity",
+  "noiseLevel",
 ] as const;
 
 const deviceScopedSubscriptionTypeValues = [
@@ -45,6 +53,9 @@ export const StatefulSubscriptionTypeSchema = z.enum(
 export const DeviceScopedSubscriptionTypeSchema = z.enum(
   deviceScopedSubscriptionTypeValues,
 );
+export const RateLimitedSubscriptionTypeSchema = z.enum(
+  rateLimitedSubscriptionTypeValues,
+);
 
 const subscriptionTypeValues = [
   ...statelessSubscriptionTypeValues,
@@ -61,6 +72,9 @@ export type StatefulSubscriptionType = z.infer<
 >;
 export type DeviceScopedSubscriptionType = z.infer<
   typeof DeviceScopedSubscriptionTypeSchema
+>;
+export type RateLimitedSubscriptionType = z.infer<
+  typeof RateLimitedSubscriptionTypeSchema
 >;
 export type SubscriptionType = z.infer<typeof SubscriptionTypeSchema>;
 
@@ -87,5 +101,19 @@ export function supportsDeviceScopedSubscriptions(
 ): boolean {
   return deviceScopedSubscriptionTypeValues.includes(
     value as DeviceScopedSubscriptionType,
+  );
+}
+
+/**
+ * Checks if a given type is a rate-limited subscription type.
+ * Used for time based rate limiting of noisy sensor events like temperature.
+ * @param value type to check
+ * @returns True if it is a known rate limited subscription type, False otherwise.
+ */
+export function isRateLimitedSubscriptionType(
+  value: string,
+): boolean {
+  return rateLimitedSubscriptionTypeValues.includes(
+    value as RateLimitedSubscriptionType,
   );
 }

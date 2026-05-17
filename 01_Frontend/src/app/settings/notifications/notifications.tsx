@@ -2,12 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { PageLayout } from "@/components/page-layout";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   axiosInstance,
   CreateSubscriptionSchema,
@@ -32,14 +27,17 @@ import {
   NoiseLevelNotificationCard,
   OutdoorGeofenceNotificationCard,
   PanicDetectionNotificationCard,
-  PasswordChangeNotificationCard,
   RegisterNotificationCard,
   RoleChangeNotificationCard,
   SameRoomTooLongNotificationCard,
   SystemBootNotificationCard,
   TemperatureNotificationCard,
   UpdateAvailableNotificationCard,
+  UserDeleteNotificationCard,
 } from "./notification-cards/notification-cards";
+
+const activeTriggerClass =
+  "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground";
 
 const ENVIRONMENT_TAB = "environment";
 const LOCATION_TAB = "location";
@@ -170,7 +168,6 @@ export function Notifications() {
     onSubscribe: handleSubscribe,
     onUnsubscribe: handleUnsubscribe,
   };
-
   return (
     <PageLayout
       title="Notification Subscriptions"
@@ -193,10 +190,19 @@ export function Notifications() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
-          <TabsTrigger value={ENVIRONMENT_TAB}>Environment</TabsTrigger>
-          <TabsTrigger value={LOCATION_TAB}>Location</TabsTrigger>
-          <TabsTrigger value={SYSTEM_TAB}>System</TabsTrigger>
-          <TabsTrigger value={USER_ACTIVITY_TAB}>User activity</TabsTrigger>
+          {" "}
+          <TabsTrigger value={ENVIRONMENT_TAB} className={activeTriggerClass}>
+            Environment
+          </TabsTrigger>
+          <TabsTrigger value={LOCATION_TAB} className={activeTriggerClass}>
+            Location
+          </TabsTrigger>
+          <TabsTrigger value={SYSTEM_TAB} className={activeTriggerClass}>
+            System
+          </TabsTrigger>
+          <TabsTrigger value={USER_ACTIVITY_TAB} className={activeTriggerClass}>
+            User activity
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value={ENVIRONMENT_TAB}>
@@ -272,13 +278,13 @@ export function Notifications() {
               {...sharedProps}
               subscriptions={getSubscriptions("register")}
             />
-            <PasswordChangeNotificationCard
-              {...sharedProps}
-              subscriptions={getSubscriptions("passwordChange")}
-            />
             <RoleChangeNotificationCard
               {...sharedProps}
               subscriptions={getSubscriptions("roleChange")}
+            />
+            <UserDeleteNotificationCard
+              {...sharedProps}
+              subscriptions={getSubscriptions("userDelete")}
             />
             <AccessCodeNotificationCard
               {...sharedProps}
