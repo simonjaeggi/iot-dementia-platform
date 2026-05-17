@@ -3,6 +3,7 @@ import haversine from "haversine-distance";
 import { db } from "../../../db/db";
 import { devices, outdoorLocationStates } from "../../../db/schema";
 import {
+  claimNotificationMarker,
   createNotificationsForUsers,
   getSubscriptionsByType,
   groupSubscriptionsByUser,
@@ -11,7 +12,6 @@ import {
   ExistingOutdoorLocationState,
   ExistingUserEventSubscription,
 } from "../../../db/types";
-import { hasSubscriptionTriggeredNotificationSinceTime } from "../stateless/stateless-notification.service";
 import {
   formatDeviceReference,
   formatPatientLabel,
@@ -88,14 +88,10 @@ export async function processOutdoorLocationNotifications(
       return wasInside !== isInside;
     });
 
+    const triggerKey = `outdoorGeofenceCrossed:dev=${state.deviceCertFingerprintSha256}:obs=${state.lastObservedAt.toISOString()}`;
     // dismiss if subscription has already alerted since the last state change
     for (const subscription of dueSubscriptions) {
-      if (
-        await hasSubscriptionTriggeredNotificationSinceTime(
-          subscription.id,
-          state.lastObservedAt,
-        )
-      ) {
+      if (!(await claimNotificationMarker(subscription.id, triggerKey))) {
         continue;
       }
 
@@ -136,17 +132,11 @@ function buildOutdoorGeofenceNotificationContent(
   subscription: UserEventSubscriptionWithGeofence,
   direction: "entered" | "left",
 ): { title: string; message: string } {
-  const deviceLabel = formatDeviceReference(
-    state.deviceName,
-    state.deviceCertFingerprintSha256,
-  );
-  const houseAction =
-    direction === "entered" ? "entered the house" : "left the house";
 
   return {
-    title: direction === "entered" ? "Entered the house" : "Left the house",
+    title: `${patientLabel} ${direction} the house`,
     message:
-      `${patientLabel} (using ${deviceLabel}) ${houseAction} at ` +
+      `${patientLabel} ${direction} at ` +
       `${formatSwissTimestamp(state.lastObservedAt)}.\n\n` +
       `Current location: ${state.latestLat}, ${state.latestLng}\n` +
       `Geofence center: ${subscription.thresholdConfig.lat}, ${subscription.thresholdConfig.lng}\n` +

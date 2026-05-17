@@ -1,6 +1,7 @@
 import { eq, getTableColumns } from "drizzle-orm";
 import { db } from "../../../db/db";
 import {
+  claimNotificationMarker,
   createNotificationsForUsers,
   getSubscriptionsByType,
   groupSubscriptionsByUser,
@@ -15,7 +16,6 @@ import {
   ExistingInfrastructureState,
   ExistingUserEventSubscription,
 } from "../../../db/types";
-import { hasSubscriptionTriggeredNotificationSinceTime } from "../stateless/stateless-notification.service";
 type InfrastructureStateWithDeviceName = ExistingInfrastructureState & {
   deviceName: string | null;
 };
@@ -60,13 +60,9 @@ export async function processInfrastructureNotifications(
 
     const pendingSubscriptions: ExistingUserEventSubscription[] = [];
 
+    const triggerKey = `infrastructureStatusTooLong:dev=${state.deviceCertFingerprintSha256}:status=${state.status}:since=${state.statusSince.toISOString()}`;
     for (const subscription of dueSubscriptions) {
-      if (
-        await hasSubscriptionTriggeredNotificationSinceTime(
-          subscription.id,
-          state.statusSince,
-        )
-      ) {
+      if (!(await claimNotificationMarker(subscription.id, triggerKey))) {
         continue;
       }
 

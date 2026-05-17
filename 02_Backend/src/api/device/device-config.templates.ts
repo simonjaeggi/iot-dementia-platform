@@ -64,8 +64,8 @@ export const personStationConfigTemplate: DeviceConfigDto = {
       i2sBclkPin: 18,
       i2sLrckPin: 21,
       i2sDinPin: 14,
-      noiseThresholdDb: 65,
-      dbOffset: 112.8,
+      noiseThresholdDb: 60,
+      dbOffset: 110,
     },
     {
       id: "person-location",

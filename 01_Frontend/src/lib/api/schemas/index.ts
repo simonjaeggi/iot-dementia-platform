@@ -6,3 +6,5 @@ export * from "./beacon";
 export * from "./patient";
 export * from "./subscription";
 export * from "./notification";
+export * from "./access-code";
+export * from "./infrastructure-state";

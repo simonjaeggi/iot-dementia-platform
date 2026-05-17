@@ -31,6 +31,21 @@ export function getUserIdFromJwt(c: Context): number {
 }
 
 /**
+ * Helper function that extracts the user email from JWT token.
+ * @argument c HTTP request context
+ * @returns User email
+ * @throws {HTTPException} 401 Invalid jwt payload
+ */
+export function getUserEmailFromJwt(c: Context): string {
+  const parsed = JwtPayloadSchema.safeParse(c.get("jwtPayload"));
+  if (!parsed.success) {
+    throw new HTTPException(401, { message: "Invalid user context." });
+  }
+
+  return parsed.data.email;
+}
+
+/**
  * Helper function that extracts the device fingerprint from context.
  * @argument c HTTP request context
  * @returns Device fingerprint

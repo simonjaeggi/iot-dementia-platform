@@ -60,8 +60,8 @@ static esp_err_t ensure_device_credentials(void)
         return ESP_OK;
     }
 
-    if (nvs_get_string(DEVICE_CERT_PEM_KEY, device_cert_pem, sizeof(device_cert_pem)) != ESP_OK ||
-        nvs_get_string(DEVICE_KEY_PEM_KEY, device_key_pem, sizeof(device_key_pem)) != ESP_OK)
+    if (nvs_cfg_get_string(DEVICE_CERT_PEM_KEY, device_cert_pem, sizeof(device_cert_pem)) != ESP_OK ||
+        nvs_cfg_get_string(DEVICE_KEY_PEM_KEY, device_key_pem, sizeof(device_key_pem)) != ESP_OK)
     {
         ESP_LOGE(TAG, "Missing device cert/key in NVS; cannot contact backend");
         memset(device_key_pem, 0, sizeof(device_key_pem));

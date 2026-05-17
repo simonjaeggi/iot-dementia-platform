@@ -53,7 +53,10 @@ static void keep_alive_loop(void)
 
 void app_main(void)
 {
-    ESP_LOGI(TAG, "app_main start");
+    ESP_LOGI(TAG, "app_main start, waiting for boot delay %d ms", BOOT_DELAY_MS);
+    vTaskDelay(pdMS_TO_TICKS(BOOT_DELAY_MS));
+    ESP_LOGI(TAG, "Boot delay waited, continuing...");
+
     reduce_log_noise();
     esp_err_t cfg_err = config_set_context();
 

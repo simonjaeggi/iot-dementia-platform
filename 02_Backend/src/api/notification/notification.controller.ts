@@ -7,11 +7,13 @@ import {
   getUserEventSubscriptions,
   getUserNotifications,
   markAllNotificationsRead,
+  markNotificationRead,
 } from "./notification.service";
 import { HTTPException } from "hono/http-exception";
 import { CreateSubscriptionSchema } from "./zod/create-subscription.schema";
 import { SubscriptionIdSchema } from "./zod/subscription-id.schema";
 import { GetUserNotificationsSchema } from "./zod/get-notification-by-user.schema";
+import { MarkNotificationReadSchema } from "./zod/mark-read.schema";
 
 /**
  * Returns notifications for the authenticated user.
@@ -123,6 +125,36 @@ export async function markAllAsRead(c: Context) {
   const userId = getUserIdFromJwt(c);
   const markedRead = await markAllNotificationsRead(userId);
   return c.json({ markedRead });
+}
+
+/**
+ * Marks a notification as read.
+ * @param c HTTP context 
+ * @returns HTTP JSON response containing the updated notification.
+ * @throws {HTTPException} 401 invalid user context
+ * @throws {HTTPException} 400 invalid notification id
+ * @throws {HTTPException} 404 notification not found
+ */
+export async function markAsRead(c: Context) {
+  const userId = getUserIdFromJwt(c);
+  const notificationIdResult = MarkNotificationReadSchema.safeParse(
+    c.req.param("id"),
+  );
+
+  if (!notificationIdResult.success) {
+    throw new HTTPException(400, { message: "Invalid notification id." });
+  }
+
+  const notification = await markNotificationRead(
+    userId,
+    notificationIdResult.data,
+  );
+
+  if (!notification) {
+    throw new HTTPException(404, { message: "Notification not found." });
+  }
+
+  return c.json({ notification });
 }
 
 /**

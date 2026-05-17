@@ -91,7 +91,7 @@ esp_err_t generate_csr(const char *device_cn, bool force_csr)
     }
 
     if (!force_csr &&
-        nvs_get_string(DEVICE_CERT_PEM_KEY, (char *)csr_pem, DEVICE_PEM_BUF_SIZE) == ESP_OK &&
+        nvs_cfg_get_string(DEVICE_CERT_PEM_KEY, (char *)csr_pem, DEVICE_PEM_BUF_SIZE) == ESP_OK &&
         csr_pem[0])
     {
         ESP_LOGI(TAG, "Device Cert found in NVS. No new provisioning required.");
@@ -100,7 +100,7 @@ esp_err_t generate_csr(const char *device_cn, bool force_csr)
         return ESP_OK;
     }
 
-    bool have_key = (nvs_get_string(DEVICE_KEY_PEM_KEY, (char *)key_pem, DEVICE_PEM_BUF_SIZE) == ESP_OK &&
+    bool have_key = (nvs_cfg_get_string(DEVICE_KEY_PEM_KEY, (char *)key_pem, DEVICE_PEM_BUF_SIZE) == ESP_OK &&
                      key_pem[0]);
 
     if (have_key)
@@ -133,9 +133,9 @@ esp_err_t generate_csr(const char *device_cn, bool force_csr)
             return ESP_FAIL;
         }
 
-        if (nvs_set_string(DEVICE_KEY_PEM_KEY, (const char *)key_pem) != ESP_OK)
+        if (nvs_cfg_set_string(DEVICE_KEY_PEM_KEY, (const char *)key_pem) != ESP_OK)
         {
-            ESP_LOGE(TAG, "nvs_set_string failed while storing key");
+            ESP_LOGE(TAG, "nvs_cfg_set_string failed while storing key");
             free(key_pem);
             free(csr_pem);
             return ESP_FAIL;
@@ -150,18 +150,7 @@ esp_err_t generate_csr(const char *device_cn, bool force_csr)
 
 bool cert_exists(void)
 {
-    if (nvs_init() != ESP_OK)
-        return false;
-    nvs_handle_t h;
-    esp_err_t err = nvs_open("storage", NVS_READONLY, &h);
-    if (err != ESP_OK)
-        return false;
-
-    size_t required = 0;
-    err = nvs_get_str(h, DEVICE_CERT_PEM_KEY, NULL, &required);
-    nvs_close(h);
-
-    return (err == ESP_OK && required > 1);
+    return nvs_cfg_key_exists(DEVICE_CERT_PEM_KEY);
 }
 
 void print_cert_from_nvs(void)
@@ -173,7 +162,7 @@ void print_cert_from_nvs(void)
         return;
     }
 
-    if (nvs_get_string(DEVICE_CERT_PEM_KEY, pem, DEVICE_PEM_BUF_SIZE) == ESP_OK && pem[0])
+    if (nvs_cfg_get_string(DEVICE_CERT_PEM_KEY, pem, DEVICE_PEM_BUF_SIZE) == ESP_OK && pem[0])
     {
         ESP_LOGI(TAG, "Cert currently in NVS (%d bytes):", (int)strlen(pem));
         printf("----- CERT FROM NVS START -----\n%s\n----- CERT FROM NVS END -----\n", pem);
@@ -201,7 +190,7 @@ void serial_read_and_store_cert(void)
     {
         ESP_LOGI(TAG, "Captured %d bytes", (int)strlen(pem));
 
-        if (nvs_set_string(DEVICE_CERT_PEM_KEY, pem) == ESP_OK)
+        if (nvs_cfg_set_string(DEVICE_CERT_PEM_KEY, pem) == ESP_OK)
         {
             ESP_LOGI(TAG, "Cert stored to NVS");
         }

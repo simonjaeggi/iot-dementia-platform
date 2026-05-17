@@ -51,31 +51,22 @@ export async function getEvents(
 }
 
 /**
- * Returns the events of the last x days.
+ * Returns the events of the last x days, optionally by type.
+ * @param eventType type to retrieve
  * @param days x days
  * @returns {Promise<ExistingEvent[]>} Event list
  */
-export async function getEventsFromLastXDays(
+export async function getEventsByTypeAndLastXDays(
   days: number,
+  eventType?: EventType,
 ): Promise<ExistingEvent[]> {
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - days);
-  const rows = await db
-    .select()
-    .from(events)
-    .where(gte(events.time, startDate));
-  return rows;
-}
+  const where = eventType
+    ? and(gte(events.time, startDate), eq(events.type, eventType))
+    : gte(events.time, startDate);
 
-/**
- * Returns all events of a given type.
- * @param eventType type to retrieve
- * @returns {Promise<ExistingEvent[]>} Event list
- */
-export async function getEventsByType(
-  eventType: EventType,
-): Promise<ExistingEvent[]> {
-  const rows = db.select().from(events).where(eq(events.type, eventType));
+  const rows = await db.select().from(events).where(where);
   return rows;
 }
 
@@ -98,6 +89,32 @@ export async function getEventsByTypeAndLastXSeconds(
     .orderBy(desc(events.time));
 
   return rows as ExistingEvent[];
+}
+
+/**
+ * Returns the latest event of a given type.
+ * @param eventType type to retrieve
+ * @returns {Promise<ExistingEvent | null>} Event if found, null otherwise.
+ */
+export async function getLatestEventByType(
+  eventType: EventType,
+): Promise<ExistingEvent | null> {
+  const [row] = await db
+    .select({
+      id: events.id,
+      type: events.type,
+      time: events.time,
+      data: events.data,
+    })
+    .from(events)
+    .where(eq(events.type, eventType))
+    .orderBy(desc(events.time), desc(events.id))
+    .limit(1);
+
+  if (!row) {
+    return null;
+  }
+  return row;
 }
 
 /**

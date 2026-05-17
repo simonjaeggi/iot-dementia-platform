@@ -1,4 +1,5 @@
 import {
+  claimNotificationMarker,
   createNotificationsForUsers,
   getSubscriptionsByType,
   groupSubscriptionsByUser,
@@ -10,7 +11,6 @@ import {
 } from "../../../shared/utils";
 import { ExistingUserEventSubscription, ExistingEvent } from "../../../db/types";
 import { PanicNoiseLevelDurationThresholdConfig } from "../zod/threshold.schema";
-import { hasSubscriptionTriggeredNotificationSinceTime } from "../stateless/stateless-notification.service";
 import { getPatient } from "../../misc/misc.service";
 import { getEventsByTypeAndLastXSeconds } from "../../event/event.service";
 import { NoiseLevelEvent } from "../../event/zod/event.schema";
@@ -32,8 +32,8 @@ type StoredDeviceNoiseLevelEvent = StoredNoiseLevelEvent & {
 
 /**
  * Checks each user subscriptions for panic detection against the threshold.
- * Notification is dismissed, if there are no relevant events, if the noise level 
- * drops below the threshold during the time window, or if the subscription has 
+ * Notification is dismissed, if there are no relevant events, if the noise level
+ * drops below the threshold during the time window, or if the subscription has
  * already created a notification during the time window.
  * @param now current date to check threshold reached, defaults to new Date()
  */
@@ -108,13 +108,12 @@ export async function processPanicNotifications(
     const continuousNoiseSince = relevantEvents[0].time;
     const latestEvent = relevantEvents[relevantEvents.length - 1];
 
-    // dismiss if the subscription has already created a notification for the current period
-    if (
-      await hasSubscriptionTriggeredNotificationSinceTime(
-        subscription.id,
-        continuousNoiseSince,
-      )
-    ) {
+    // deduplicate using the subscription duration as a alert-once-only time window.
+    const cooldownMs = subscription.thresholdConfig.durationSeconds * 1000;
+    const timeBucket = Math.floor(now.getTime() / cooldownMs);
+    const triggerKey = `panicDetection:dev=${subscription.deviceCertFingerprintSha256 ?? "any"}:bucket=${timeBucket}`;
+    const expiresAt = new Date((timeBucket + 1) * cooldownMs);
+    if (!(await claimNotificationMarker(subscription.id, triggerKey, expiresAt))) {
       continue;
     }
 
@@ -160,11 +159,11 @@ function buildPanicDetectionNotificationContent(
   );
 
   return {
-    title: "Panic detection",
+    title: `${patientLabel} may be panicing`,
     message:
-      `${patientLabel} has had noise above ${minDb} dB since ` +
+      `${patientLabel} may be panicing. Noise has stayed above ${minDb} dB since ` +
       `${formatSwissTimestamp(continuousNoiseSince)} ` +
       `(${formatDurationFromSeconds(elapsedSeconds)}).\n\n` +
-      `Current noise level: ${latestApproxDb} dB`,
+      `Latest noise level: ${latestApproxDb} dB`,
   };
 }

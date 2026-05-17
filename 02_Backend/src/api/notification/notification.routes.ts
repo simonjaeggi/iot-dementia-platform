@@ -3,6 +3,7 @@ import { jwt } from "hono/jwt";
 import { jwtOptions } from "../auth/jwt.config";
 import {
   markAllAsRead,
+  markAsRead,
   notifications,
   notificationSubscriptions,
   removeAll,
@@ -16,6 +17,7 @@ notificationRoutes.use("*", jwt(jwtOptions));
 
 notificationRoutes.get("/", notifications);
 notificationRoutes.post("/mark-all-read", markAllAsRead);
+notificationRoutes.post("/:id/mark-read", markAsRead);
 notificationRoutes.delete("/all", removeAll);
 notificationRoutes.get("/subscriptions", notificationSubscriptions);
 notificationRoutes.post("/subscriptions", subscribeToNotifications);

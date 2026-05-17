@@ -1,44 +1,22 @@
 import { Link } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
 import { PageLayout } from "@/components/page-layout";
-
-const SETTINGS_SECTIONS = [
-  {
-    title: "Notification Subscriptions",
-    description: "Choose which event types should create notifications.",
-    path: "/settings/notifications",
-  },
-  {
-    title: "Location Beacons",
-    description:
-      "Manage room labels for indoor location detection.",
-    path: "/settings/location-beacons",
-  },
-  {
-    title: "Users & Roles",
-    description: "Manage users and their roles.",
-    path: "/settings/users",
-  },
-  {
-    title: "Access Codes",
-    description: "Issue and revoke registration access codes.",
-    path: "/settings/access-codes",
-  },
-  {
-    title: "Patient Information",
-    description: "Manage the information of the patient.",
-    path: "/settings/patient",
-  },
-];
+import { useAuth } from "@/auth/use-auth";
+import { SETTINGS_SECTIONS } from "./settings-sections";
 
 export function SettingsOverview() {
+  const { user } = useAuth();
+  const visibleSettingsSections = SETTINGS_SECTIONS.filter(
+    (section) => !section.requiredRole || section.requiredRole === user?.role,
+  );
+
   return (
     <PageLayout title="Settings" contentClassName="flex flex-col gap-2">
       <p className="text-muted-foreground text-sm">
         Pick a section to view or change its settings.
       </p>
       <ul className="divide-y rounded-lg border">
-        {SETTINGS_SECTIONS.map((section) => (
+        {visibleSettingsSections.map((section) => (
           <li key={section.path}>
             <Link
               to={section.path}

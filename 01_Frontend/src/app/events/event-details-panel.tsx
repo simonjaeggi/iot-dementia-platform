@@ -11,6 +11,7 @@ import {
   getAxiosErrorMessage,
   type ApiEvent,
   type ApiEventSource,
+  type LocationBeacon,
 } from "@/lib/api";
 import {
   formatDateTime,
@@ -18,39 +19,20 @@ import {
   formatJson,
   formatPrimitiveValue,
 } from "@/lib/detail-formatters";
-
-type ApiDevice = {
-  name: string | null;
-};
-
-type ApiIndoorBeacon = {
-  id: string;
-  signalStrengthDbm: number;
-};
-
-type ApiLocationBeacon = {
-  displayName: string;
-  macIdentifier: string;
-};
+import {
+  getBeaconNamesByMac,
+  isIndoorBeaconReading,
+  normaliseMacIdentifier,
+  type IndoorBeaconReading,
+} from "@/lib/location-helpers";
+import { useDeviceDisplayName } from "@/lib/device-helpers";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function isIndoorBeacon(value: unknown): value is ApiIndoorBeacon {
-  return (
-    isRecord(value) &&
-    typeof value.id === "string" &&
-    typeof value.signalStrengthDbm === "number"
-  );
-}
-
-function normaliseMacIdentifier(value: string) {
-  return value.trim().replace(/-/g, ":").toUpperCase();
-}
-
 function renderIndoorBeacon(
-  beacon: ApiIndoorBeacon,
+  beacon: IndoorBeaconReading,
   beaconDisplayName: string | null,
 ) {
   return (
@@ -93,7 +75,7 @@ function renderValue(
     );
   }
 
-  if (isIndoorBeacon(value)) {
+  if (isIndoorBeaconReading(value)) {
     const beaconDisplayName =
       locationBeaconDisplayNames?.get(normaliseMacIdentifier(value.id)) ?? null;
 
@@ -183,10 +165,8 @@ function DetailItem({
 
 function SourceDetails({
   source,
-  deviceName,
 }: {
   source: ApiEventSource | null;
-  deviceName: string | null;
 }) {
   if (source === null) {
     return (
@@ -209,12 +189,7 @@ function SourceDetails({
         </DetailItem>
         <DetailItem label="Device">
           {source.deviceFingerprint ? (
-            <Link
-              to={`/devices?fingerprint=${source.deviceFingerprint}`}
-              className="text-sm font-medium text-blue-600 underline-offset-4 hover:underline"
-            >
-              {deviceName ?? "Unnamed device"}
-            </Link>
+            <DeviceLink fingerprint={source.deviceFingerprint} />
           ) : (
             "Unknown device"
           )}
@@ -251,6 +226,19 @@ function SourceDetails({
   );
 }
 
+function DeviceLink({ fingerprint }: { fingerprint: string }) {
+  const deviceName = useDeviceDisplayName(fingerprint);
+
+  return (
+    <Link
+      to={`/devices?fingerprint=${fingerprint}`}
+      className="text-sm font-medium text-blue-600 underline-offset-4 hover:underline"
+    >
+      {deviceName}
+    </Link>
+  );
+}
+
 type EventDetailsPanelProps = {
   eventId: number | null;
 };
@@ -273,20 +261,6 @@ export function EventDetailsPanel({ eventId }: EventDetailsPanelProps) {
 
   const eventSource: ApiEventSource | null = eventQuery.data?.data.source ?? null;
   const eventData = eventQuery.data?.data.data;
-  const sourceFingerprint =
-    eventSource?.kind === "device" ? eventSource.deviceFingerprint : null;
-
-  const deviceQuery = useQuery({
-    queryKey: ["device", sourceFingerprint],
-    enabled: Boolean(sourceFingerprint),
-    retry: false,
-    queryFn: async () => {
-      const response = await axiosInstance.get<ApiDevice>(
-        endpoints.device.get(sourceFingerprint!),
-      );
-      return response.data;
-    },
-  });
 
   const shouldLoadLocationBeacons =
     eventQuery.data?.type === "indoorLocation";
@@ -296,18 +270,15 @@ export function EventDetailsPanel({ eventId }: EventDetailsPanelProps) {
     enabled: shouldLoadLocationBeacons,
     retry: false,
     queryFn: async () => {
-      const response = await axiosInstance.get<{ beacons: ApiLocationBeacon[] }>(
+      const response = await axiosInstance.get<{ beacons: LocationBeacon[] }>(
         endpoints.misc.locationBeacons,
       );
       return response.data.beacons;
     },
   });
 
-  const locationBeaconDisplayNames = new Map(
-    (locationBeaconsQuery.data ?? []).map((beacon) => [
-      normaliseMacIdentifier(beacon.macIdentifier),
-      beacon.displayName,
-    ]),
+  const locationBeaconDisplayNames = getBeaconNamesByMac(
+    locationBeaconsQuery.data ?? [],
   );
 
   const errorMessage = getAxiosErrorMessage(
@@ -356,10 +327,7 @@ export function EventDetailsPanel({ eventId }: EventDetailsPanelProps) {
 
             <div>
               <div className="mb-2 text-sm font-medium">Source details</div>
-              <SourceDetails
-                source={eventSource}
-                deviceName={deviceQuery.data?.name ?? null}
-              />
+            <SourceDetails source={eventSource} />
             </div>
 
             {eventData != null ? (

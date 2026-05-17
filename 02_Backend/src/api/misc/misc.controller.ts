@@ -4,6 +4,7 @@ import {
   createLocationBeacon as createStoredLocationBeacon,
   createPatient as createStoredPatient,
   deleteLocationBeacon,
+  getInfrastructureStates,
   getPatient,
   getLocationBeacons,
   updatePatient as updateStoredPatient,
@@ -23,6 +24,16 @@ import { UpdatePatientSchema } from "./zod/update-patient.schema";
 export async function locationBeacons(c: Context) {
   const beacons = await getLocationBeacons();
   return c.json({ beacons });
+}
+
+/**
+ * Returns infrastructure states.
+ * @param c HTTP context
+ * @returns HTTP JSON response containing a list of infrastructure states.
+ */
+export async function infrastructureStates(c: Context) {
+  const states = await getInfrastructureStates();
+  return c.json({ states });
 }
 
 /**

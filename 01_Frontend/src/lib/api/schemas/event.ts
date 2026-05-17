@@ -51,10 +51,10 @@ export const EVENT_TYPES = [
   "login",
   "noiseLevel",
   "outdoorLocation",
-  "passwordChange",
   "register",
   "roleChange",
   "systemBoot",
   "temperature",
   "updateAvailable",
+  "userDelete",
 ] as const;

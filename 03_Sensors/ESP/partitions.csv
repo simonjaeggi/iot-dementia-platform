@@ -1,0 +1,7 @@
+# ESP firmware partition table — fits in 2 MB to ensure working with the ESP32c6 development boards.
+# Seperate partitions for permanent configuration values in NVS to protect them against garbase collection.
+# Name,    Type, SubType, Offset,   Size,     Flags
+nvs,       data, nvs,     0x9000,   0x4000,
+nvs_cfg,   data, nvs,     0xD000,   0x20000,
+phy_init,  data, phy,     0x2D000,  0x1000,
+factory,   app,  factory, 0x40000,  0x180000,

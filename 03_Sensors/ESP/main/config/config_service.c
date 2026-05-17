@@ -29,14 +29,14 @@ static esp_err_t read_prov_context(void)
         return ESP_FAIL;
     }
 
-    if (nvs_get_string(BACKEND_HOST_KEY, backend_out, backend_len) != ESP_OK)
+    if (nvs_cfg_get_string(BACKEND_HOST_KEY, backend_out, backend_len) != ESP_OK)
         return ESP_FAIL;
 
-    if (nvs_get_string(WIFI_SSID_KEY, ssid_out, ssid_len) != ESP_OK)
+    if (nvs_cfg_get_string(WIFI_SSID_KEY, ssid_out, ssid_len) != ESP_OK)
         return ESP_FAIL;
 
     pw_out[0] = '\0';
-    if (nvs_get_string(WIFI_PASSWORD_KEY, pw_out, pw_len) != ESP_OK)
+    if (nvs_cfg_get_string(WIFI_PASSWORD_KEY, pw_out, pw_len) != ESP_OK)
         return ESP_OK;
 
     return ESP_OK;
@@ -53,7 +53,7 @@ static esp_err_t ensure_device_name(void)
         return ESP_FAIL;
     }
 
-    if (nvs_get_string(DEVICE_NAME_KEY, device_name, device_name_len) == ESP_OK &&
+    if (nvs_cfg_get_string(DEVICE_NAME_KEY, device_name, device_name_len) == ESP_OK &&
         device_name[0] != '\0')
     {
         ESP_LOGI(TAG, "Loaded device name %s", device_name);
@@ -62,7 +62,7 @@ static esp_err_t ensure_device_name(void)
 
     int device_id = (int)(esp_random() % 9000) + 1000;
     snprintf(device_name, device_name_len, DEVICE_NAME_FMT, device_id);
-    if (nvs_set_string(DEVICE_NAME_KEY, device_name) != ESP_OK)
+    if (nvs_cfg_set_string(DEVICE_NAME_KEY, device_name) != ESP_OK)
     {
         ESP_LOGW(TAG, "Failed to write new device name to NVS: %s", device_name);
         return ESP_FAIL;
@@ -110,14 +110,14 @@ static esp_err_t read_device_config_from_nvs(void)
         return ESP_FAIL;
     }
 
-    if (nvs_get_int(DEVICE_CONFIG_VERSION_KEY, &device_cfg->version) != ESP_OK)
+    if (nvs_cfg_get_int(DEVICE_CONFIG_VERSION_KEY, &device_cfg->version) != ESP_OK)
     {
         ESP_LOGW(TAG, "Device config version failed to read from NVS.");
         free(device_cfg);
         return ESP_FAIL;
     }
 
-    if (nvs_get_int(DEVICE_CONFIG_SENSOR_COUNT_KEY, &sensor_count) != ESP_OK)
+    if (nvs_cfg_get_int(DEVICE_CONFIG_SENSOR_COUNT_KEY, &sensor_count) != ESP_OK)
     {
         ESP_LOGW(TAG, "Device config sensor count failed to read from NVS.");
         free(device_cfg);
@@ -140,7 +140,7 @@ static esp_err_t read_device_config_from_nvs(void)
         char key[64] = {0};
 
         snprintf(key, sizeof(key), DEVICE_CONFIG_SENSOR_ID_KEY_FMT, i);
-        if (nvs_get_string(key, device_cfg->sensors[i].id, sizeof(device_cfg->sensors[i].id)) != ESP_OK)
+        if (nvs_cfg_get_string(key, device_cfg->sensors[i].id, sizeof(device_cfg->sensors[i].id)) != ESP_OK)
         {
             ESP_LOGW(TAG, "Device config sensor with array index %d id failed to read from NVS.", i);
             free(device_cfg);
@@ -149,7 +149,7 @@ static esp_err_t read_device_config_from_nvs(void)
 
         uint32_t type = 0;
         snprintf(key, sizeof(key), DEVICE_CONFIG_SENSOR_TYPE_KEY_FMT, i);
-        if (nvs_get_int(key, &type) != ESP_OK)
+        if (nvs_cfg_get_int(key, &type) != ESP_OK)
         {
             ESP_LOGW(TAG, "Device config sensor with array index %d type failed to read from NVS.", i);
             free(device_cfg);
@@ -158,7 +158,7 @@ static esp_err_t read_device_config_from_nvs(void)
         device_cfg->sensors[i].type = (sensor_type_t)type;
 
         snprintf(key, sizeof(key), DEVICE_CONFIG_SENSOR_PUBLISH_INTERVAL_MS_KEY_FMT, i);
-        if (nvs_get_int(key, &device_cfg->sensors[i].publish_interval_ms) != ESP_OK)
+        if (nvs_cfg_get_int(key, &device_cfg->sensors[i].publish_interval_ms) != ESP_OK)
         {
             ESP_LOGW(TAG, "Device config sensor with array index %d publishIntervalMs failed to read from NVS.", i);
             free(device_cfg);
@@ -171,7 +171,7 @@ static esp_err_t read_device_config_from_nvs(void)
             int beacon_count_int = 0;
 
             snprintf(key, sizeof(key), DEVICE_CONFIG_SENSOR_BEACON_MAC_COUNT_KEY_FMT, i);
-            if (nvs_get_int(key, &beacon_count) != ESP_OK)
+            if (nvs_cfg_get_int(key, &beacon_count) != ESP_OK)
             {
                 ESP_LOGW(TAG, "Device config indoorLocation sensor with array index %d: beacon count failed to read from NVS.", i);
                 free(device_cfg);
@@ -197,7 +197,7 @@ static esp_err_t read_device_config_from_nvs(void)
                     i,
                     j);
 
-                if (nvs_get_string(
+                if (nvs_cfg_get_string(
                         key,
                         device_cfg->sensors[i].config.indoor_location.beacon_mac_addresses[j],
                         sizeof(device_cfg->sensors[i].config.indoor_location.beacon_mac_addresses[j])) != ESP_OK)
@@ -213,7 +213,7 @@ static esp_err_t read_device_config_from_nvs(void)
             uint32_t gpio_pin = 0;
 
             snprintf(key, sizeof(key), DEVICE_CONFIG_SENSOR_GPIO_PIN_KEY_FMT, i);
-            if (nvs_get_int(key, &gpio_pin) != ESP_OK)
+            if (nvs_cfg_get_int(key, &gpio_pin) != ESP_OK)
             {
                 ESP_LOGW(TAG, "Device config infrastructureStatus sensor with array index %d: gpio pin failed to read from NVS.", i);
                 free(device_cfg);
@@ -246,7 +246,7 @@ static esp_err_t read_device_config_from_nvs(void)
                     : "temperatureHumidity";
 
             snprintf(key, sizeof(key), DEVICE_CONFIG_SENSOR_I2C_SDA_PIN_KEY_FMT, i);
-            if (nvs_get_int(key, &i2c_sda_pin) != ESP_OK)
+            if (nvs_cfg_get_int(key, &i2c_sda_pin) != ESP_OK)
             {
                 ESP_LOGW(TAG, "Device config %s sensor with array index %d: i2c sda pin failed to read from NVS.", sensor_type_name, i);
                 free(device_cfg);
@@ -254,7 +254,7 @@ static esp_err_t read_device_config_from_nvs(void)
             }
 
             snprintf(key, sizeof(key), DEVICE_CONFIG_SENSOR_I2C_SCL_PIN_KEY_FMT, i);
-            if (nvs_get_int(key, &i2c_scl_pin) != ESP_OK)
+            if (nvs_cfg_get_int(key, &i2c_scl_pin) != ESP_OK)
             {
                 ESP_LOGW(TAG, "Device config %s sensor with array index %d: i2c scl pin failed to read from NVS.", sensor_type_name, i);
                 free(device_cfg);
@@ -279,7 +279,7 @@ static esp_err_t read_device_config_from_nvs(void)
                 float fall_threshold_g = 0.0f;
 
                 snprintf(key, sizeof(key), DEVICE_CONFIG_SENSOR_POLL_INTERVAL_MS_KEY_FMT, i);
-                if (nvs_get_int(key, &poll_interval_ms) != ESP_OK)
+                if (nvs_cfg_get_int(key, &poll_interval_ms) != ESP_OK)
                 {
                     ESP_LOGW(TAG, "Device config accelerometer sensor with array index %d: poll interval failed to read from NVS.", i);
                     free(device_cfg);
@@ -287,7 +287,7 @@ static esp_err_t read_device_config_from_nvs(void)
                 }
 
                 snprintf(key, sizeof(key), DEVICE_CONFIG_SENSOR_FALL_THRESHOLD_G_KEY_FMT, i);
-                if (nvs_get_float(key, &fall_threshold_g) != ESP_OK)
+                if (nvs_cfg_get_float(key, &fall_threshold_g) != ESP_OK)
                 {
                     ESP_LOGW(TAG, "Device config accelerometer sensor with array index %d: fall threshold failed to read from NVS.", i);
                     free(device_cfg);
@@ -327,7 +327,7 @@ static esp_err_t read_device_config_from_nvs(void)
             float db_offset = 0.0f;
 
             snprintf(key, sizeof(key), DEVICE_CONFIG_SENSOR_I2S_BCLK_PIN_KEY_FMT, i);
-            if (nvs_get_int(key, &i2s_bclk_pin) != ESP_OK)
+            if (nvs_cfg_get_int(key, &i2s_bclk_pin) != ESP_OK)
             {
                 ESP_LOGW(TAG, "Device config noiseLevel sensor with array index %d: i2s bclk pin failed to read from NVS.", i);
                 free(device_cfg);
@@ -335,7 +335,7 @@ static esp_err_t read_device_config_from_nvs(void)
             }
 
             snprintf(key, sizeof(key), DEVICE_CONFIG_SENSOR_I2S_LRCK_PIN_KEY_FMT, i);
-            if (nvs_get_int(key, &i2s_lrck_pin) != ESP_OK)
+            if (nvs_cfg_get_int(key, &i2s_lrck_pin) != ESP_OK)
             {
                 ESP_LOGW(TAG, "Device config noiseLevel sensor with array index %d: i2s lrck pin failed to read from NVS.", i);
                 free(device_cfg);
@@ -343,7 +343,7 @@ static esp_err_t read_device_config_from_nvs(void)
             }
 
             snprintf(key, sizeof(key), DEVICE_CONFIG_SENSOR_I2S_DIN_PIN_KEY_FMT, i);
-            if (nvs_get_int(key, &i2s_din_pin) != ESP_OK)
+            if (nvs_cfg_get_int(key, &i2s_din_pin) != ESP_OK)
             {
                 ESP_LOGW(TAG, "Device config noiseLevel sensor with array index %d: i2s din pin failed to read from NVS.", i);
                 free(device_cfg);
@@ -351,7 +351,7 @@ static esp_err_t read_device_config_from_nvs(void)
             }
 
             snprintf(key, sizeof(key), DEVICE_CONFIG_SENSOR_POLL_INTERVAL_MS_KEY_FMT, i);
-            if (nvs_get_int(key, &poll_interval_ms) != ESP_OK)
+            if (nvs_cfg_get_int(key, &poll_interval_ms) != ESP_OK)
             {
                 ESP_LOGW(TAG, "Device config noiseLevel sensor with array index %d: poll interval failed to read from NVS.", i);
                 free(device_cfg);
@@ -359,7 +359,7 @@ static esp_err_t read_device_config_from_nvs(void)
             }
 
             snprintf(key, sizeof(key), DEVICE_CONFIG_SENSOR_NOISE_THRESHOLD_DB_KEY_FMT, i);
-            if (nvs_get_float(key, &noise_threshold_db) != ESP_OK)
+            if (nvs_cfg_get_float(key, &noise_threshold_db) != ESP_OK)
             {
                 ESP_LOGW(TAG, "Device config noiseLevel sensor with array index %d: noise threshold failed to read from NVS.", i);
                 free(device_cfg);
@@ -367,7 +367,7 @@ static esp_err_t read_device_config_from_nvs(void)
             }
 
             snprintf(key, sizeof(key), DEVICE_CONFIG_SENSOR_DB_OFFSET_KEY_FMT, i);
-            if (nvs_get_float(key, &db_offset) != ESP_OK)
+            if (nvs_cfg_get_float(key, &db_offset) != ESP_OK)
             {
                 ESP_LOGW(TAG, "Device config noiseLevel sensor with array index %d: db offset failed to read from NVS.", i);
                 free(device_cfg);
@@ -446,13 +446,13 @@ static esp_err_t write_device_config_to_nvs(const device_config_t *device_cfg)
         return ESP_FAIL;
     }
 
-    if (nvs_set_int(DEVICE_CONFIG_VERSION_KEY, device_cfg->version) != ESP_OK)
+    if (nvs_cfg_set_int(DEVICE_CONFIG_VERSION_KEY, device_cfg->version) != ESP_OK)
     {
         ESP_LOGW(TAG, "Device config version failed to write to NVS.");
         return ESP_FAIL;
     }
 
-    if (nvs_set_int(DEVICE_CONFIG_SENSOR_COUNT_KEY, device_cfg->sensor_count) != ESP_OK)
+    if (nvs_cfg_set_int(DEVICE_CONFIG_SENSOR_COUNT_KEY, device_cfg->sensor_count) != ESP_OK)
     {
         ESP_LOGW(TAG, "Device config sensor count failed to write to NVS.");
         return ESP_FAIL;
@@ -463,21 +463,21 @@ static esp_err_t write_device_config_to_nvs(const device_config_t *device_cfg)
         char key[64] = {0};
 
         snprintf(key, sizeof(key), DEVICE_CONFIG_SENSOR_ID_KEY_FMT, i);
-        if (nvs_set_string(key, device_cfg->sensors[i].id) != ESP_OK)
+        if (nvs_cfg_set_string(key, device_cfg->sensors[i].id) != ESP_OK)
         {
             ESP_LOGW(TAG, "Device config sensor with array index %d id failed to write to NVS.", i);
             return ESP_FAIL;
         }
 
         snprintf(key, sizeof(key), DEVICE_CONFIG_SENSOR_TYPE_KEY_FMT, i);
-        if (nvs_set_int(key, device_cfg->sensors[i].type) != ESP_OK)
+        if (nvs_cfg_set_int(key, device_cfg->sensors[i].type) != ESP_OK)
         {
             ESP_LOGW(TAG, "Device config sensor with array index %d type failed to write to NVS.", i);
             return ESP_FAIL;
         }
 
         snprintf(key, sizeof(key), DEVICE_CONFIG_SENSOR_PUBLISH_INTERVAL_MS_KEY_FMT, i);
-        if (nvs_set_int(key, device_cfg->sensors[i].publish_interval_ms) != ESP_OK)
+        if (nvs_cfg_set_int(key, device_cfg->sensors[i].publish_interval_ms) != ESP_OK)
         {
             ESP_LOGW(TAG, "Device config sensor with array index %d publishIntervalMs failed to write to NVS.", i);
             return ESP_FAIL;
@@ -492,7 +492,7 @@ static esp_err_t write_device_config_to_nvs(const device_config_t *device_cfg)
             }
 
             snprintf(key, sizeof(key), DEVICE_CONFIG_SENSOR_BEACON_MAC_COUNT_KEY_FMT, i);
-            if (nvs_set_int(key, device_cfg->sensors[i].config.indoor_location.beacon_mac_count) != ESP_OK)
+            if (nvs_cfg_set_int(key, device_cfg->sensors[i].config.indoor_location.beacon_mac_count) != ESP_OK)
             {
                 ESP_LOGW(TAG, "Device config indoorLocation sensor with array index %d: beacon count failed to write to NVS.", i);
                 return ESP_FAIL;
@@ -507,7 +507,7 @@ static esp_err_t write_device_config_to_nvs(const device_config_t *device_cfg)
                     i,
                     j);
 
-                if (nvs_set_string(
+                if (nvs_cfg_set_string(
                         key,
                         device_cfg->sensors[i].config.indoor_location.beacon_mac_addresses[j]) != ESP_OK)
                 {
@@ -527,7 +527,7 @@ static esp_err_t write_device_config_to_nvs(const device_config_t *device_cfg)
             }
 
             snprintf(key, sizeof(key), DEVICE_CONFIG_SENSOR_GPIO_PIN_KEY_FMT, i);
-            if (nvs_set_int(key, gpio_pin) != ESP_OK)
+            if (nvs_cfg_set_int(key, gpio_pin) != ESP_OK)
             {
                 ESP_LOGW(TAG, "Device config infrastructureStatus sensor with array index %d: gpio pin failed to write to NVS.", i);
                 return ESP_FAIL;
@@ -568,14 +568,14 @@ static esp_err_t write_device_config_to_nvs(const device_config_t *device_cfg)
             }
 
             snprintf(key, sizeof(key), DEVICE_CONFIG_SENSOR_I2C_SDA_PIN_KEY_FMT, i);
-            if (nvs_set_int(key, i2c_sda_pin) != ESP_OK)
+            if (nvs_cfg_set_int(key, i2c_sda_pin) != ESP_OK)
             {
                 ESP_LOGW(TAG, "Device config %s sensor with array index %d: i2c sda pin failed to write to NVS.", sensor_type_name, i);
                 return ESP_FAIL;
             }
 
             snprintf(key, sizeof(key), DEVICE_CONFIG_SENSOR_I2C_SCL_PIN_KEY_FMT, i);
-            if (nvs_set_int(key, i2c_scl_pin) != ESP_OK)
+            if (nvs_cfg_set_int(key, i2c_scl_pin) != ESP_OK)
             {
                 ESP_LOGW(TAG, "Device config %s sensor with array index %d: i2c scl pin failed to write to NVS.", sensor_type_name, i);
                 return ESP_FAIL;
@@ -584,14 +584,14 @@ static esp_err_t write_device_config_to_nvs(const device_config_t *device_cfg)
             if (device_cfg->sensors[i].type == SENSOR_TYPE_ACCEL)
             {
                 snprintf(key, sizeof(key), DEVICE_CONFIG_SENSOR_POLL_INTERVAL_MS_KEY_FMT, i);
-                if (nvs_set_int(key, device_cfg->sensors[i].config.accel.poll_interval_ms) != ESP_OK)
+                if (nvs_cfg_set_int(key, device_cfg->sensors[i].config.accel.poll_interval_ms) != ESP_OK)
                 {
                     ESP_LOGW(TAG, "Device config accelerometer sensor with array index %d: poll interval failed to write to NVS.", i);
                     return ESP_FAIL;
                 }
 
                 snprintf(key, sizeof(key), DEVICE_CONFIG_SENSOR_FALL_THRESHOLD_G_KEY_FMT, i);
-                if (nvs_set_float(key, device_cfg->sensors[i].config.accel.fall_threshold_g) != ESP_OK)
+                if (nvs_cfg_set_float(key, device_cfg->sensors[i].config.accel.fall_threshold_g) != ESP_OK)
                 {
                     ESP_LOGW(TAG, "Device config accelerometer sensor with array index %d: fall threshold failed to write to NVS.", i);
                     return ESP_FAIL;
@@ -611,42 +611,42 @@ static esp_err_t write_device_config_to_nvs(const device_config_t *device_cfg)
             }
 
             snprintf(key, sizeof(key), DEVICE_CONFIG_SENSOR_I2S_BCLK_PIN_KEY_FMT, i);
-            if (nvs_set_int(key, (uint32_t)i2s_bclk_pin) != ESP_OK)
+            if (nvs_cfg_set_int(key, (uint32_t)i2s_bclk_pin) != ESP_OK)
             {
                 ESP_LOGW(TAG, "Device config noiseLevel sensor with array index %d: i2s bclk pin failed to write to NVS.", i);
                 return ESP_FAIL;
             }
 
             snprintf(key, sizeof(key), DEVICE_CONFIG_SENSOR_I2S_LRCK_PIN_KEY_FMT, i);
-            if (nvs_set_int(key, (uint32_t)i2s_lrck_pin) != ESP_OK)
+            if (nvs_cfg_set_int(key, (uint32_t)i2s_lrck_pin) != ESP_OK)
             {
                 ESP_LOGW(TAG, "Device config noiseLevel sensor with array index %d: i2s lrck pin failed to write to NVS.", i);
                 return ESP_FAIL;
             }
 
             snprintf(key, sizeof(key), DEVICE_CONFIG_SENSOR_I2S_DIN_PIN_KEY_FMT, i);
-            if (nvs_set_int(key, (uint32_t)i2s_din_pin) != ESP_OK)
+            if (nvs_cfg_set_int(key, (uint32_t)i2s_din_pin) != ESP_OK)
             {
                 ESP_LOGW(TAG, "Device config noiseLevel sensor with array index %d: i2s din pin failed to write to NVS.", i);
                 return ESP_FAIL;
             }
 
             snprintf(key, sizeof(key), DEVICE_CONFIG_SENSOR_POLL_INTERVAL_MS_KEY_FMT, i);
-            if (nvs_set_int(key, device_cfg->sensors[i].config.mic.poll_interval_ms) != ESP_OK)
+            if (nvs_cfg_set_int(key, device_cfg->sensors[i].config.mic.poll_interval_ms) != ESP_OK)
             {
                 ESP_LOGW(TAG, "Device config noiseLevel sensor with array index %d: poll interval failed to write to NVS.", i);
                 return ESP_FAIL;
             }
 
             snprintf(key, sizeof(key), DEVICE_CONFIG_SENSOR_NOISE_THRESHOLD_DB_KEY_FMT, i);
-            if (nvs_set_float(key, device_cfg->sensors[i].config.mic.noise_threshold_db) != ESP_OK)
+            if (nvs_cfg_set_float(key, device_cfg->sensors[i].config.mic.noise_threshold_db) != ESP_OK)
             {
                 ESP_LOGW(TAG, "Device config noiseLevel sensor with array index %d: noise threshold failed to write to NVS.", i);
                 return ESP_FAIL;
             }
 
             snprintf(key, sizeof(key), DEVICE_CONFIG_SENSOR_DB_OFFSET_KEY_FMT, i);
-            if (nvs_set_float(key, device_cfg->sensors[i].config.mic.db_offset) != ESP_OK)
+            if (nvs_cfg_set_float(key, device_cfg->sensors[i].config.mic.db_offset) != ESP_OK)
             {
                 ESP_LOGW(TAG, "Device config noiseLevel sensor with array index %d: db offset failed to write to NVS.", i);
                 return ESP_FAIL;

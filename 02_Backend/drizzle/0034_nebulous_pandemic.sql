@@ -1,0 +1,2 @@
+ALTER TABLE "access_codes" DROP CONSTRAINT "access_codes_pkey";--> statement-breakpoint
+ALTER TABLE "access_codes" ADD COLUMN "id" integer PRIMARY KEY NOT NULL GENERATED ALWAYS AS IDENTITY (sequence name "access_codes_id_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 START WITH 1 CACHE 1);

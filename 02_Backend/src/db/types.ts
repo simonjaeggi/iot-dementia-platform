@@ -1,4 +1,5 @@
 import {
+  accessCodes,
   devices,
   events,
   fallDetectionStates,
@@ -16,6 +17,7 @@ import {
 
 export type ExistingEvent = typeof events.$inferSelect;
 export type ExistingUser = typeof users.$inferSelect;
+export type ExistingAccessCode = typeof accessCodes.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type NewDevice = typeof devices.$inferInsert;
 export type ExistingDevice = typeof devices.$inferSelect;

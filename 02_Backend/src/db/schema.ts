@@ -38,7 +38,8 @@ export const users = pgTable("users", {
 export const accessCodes = pgTable(
   "access_codes",
   {
-    code: varchar("code", { length: 14 }).primaryKey().notNull(),
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    code: varchar("code", { length: 14 }).notNull().unique(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -389,6 +390,10 @@ export const userNotificationTransport = pgTable(
       .notNull()
       .defaultNow(),
     sentAt: timestamp("sent_at", { withTimezone: true }),
+    failedAt: timestamp("failed_at", { withTimezone: true }),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    lastError: text("last_error"),
     providerMessageId: text("provider_message_id"),
     userNotificationId: integer("user_notification_id")
       .notNull()
@@ -408,5 +413,40 @@ export const userNotificationTransport = pgTable(
     index("user_notification_transport_subscription_idx").on(
       table.userEventSubscriptionId,
     ),
+    index("user_notification_transport_pending_idx").on(
+      table.sentAt,
+      table.failedAt,
+      table.nextAttemptAt,
+    ),
+  ],
+);
+
+export const notificationMarkers = pgTable(
+  "notification_markers",
+  {
+    id: integer().primaryKey().generatedAlwaysAsIdentity(),
+    userEventSubscriptionId: integer("user_event_subscription_id")
+      .notNull()
+      .references(() => userEventSubscriptions.id, { onDelete: "cascade" }),
+    triggerKey: text("trigger_key").notNull(),
+    triggeredAt: timestamp("triggered_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    userNotificationId: integer("user_notification_id").references(
+      () => userNotifications.id,
+      { onDelete: "set null" },
+    ),
+  },
+  (table) => [
+    uniqueIndex("notification_markers_subscription_key_unique").on(
+      table.userEventSubscriptionId,
+      table.triggerKey,
+    ),
+    index("notification_markers_subscription_triggered_idx").on(
+      table.userEventSubscriptionId,
+      table.triggeredAt,
+    ),
+    index("notification_markers_expires_idx").on(table.expiresAt),
   ],
 );

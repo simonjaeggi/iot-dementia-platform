@@ -5,6 +5,7 @@ import { validatedEnv, validateEnv } from "./env-validation";
 import { createInitialAccessCode } from "./api/auth/auth.service";
 import { apiRoutes } from "./api/api.routes";
 import { sendNotifications } from "./api/notification/notification.transport.service";
+import { deleteExpiredNotificationMarkers } from "./api/notification/notification.service";
 import { processStatefulNotifications } from "./api/notification/stateful/stateful-notification.service";
 import { CreateInitialAccessCodeError } from "./api/auth/auth.exceptions";
 import { pollSoftwareVersion } from "./software-update/software-update.service";
@@ -49,35 +50,59 @@ Bun.serve({
   fetch: app.fetch,
 });
 
-setInterval(async () => {
-  try {    
+const SOFTWARE_VERSION_POLL_INTERVAL_MS = 10000;
+
+async function softwareVersionTick(): Promise<void> {
+  try {
     await pollSoftwareVersion();
   } catch (error) {
     console.error("Failed to run software version poll", error);
+  } finally {
+    setTimeout(softwareVersionTick, SOFTWARE_VERSION_POLL_INTERVAL_MS);
   }
-}, 10000);
+}
 
-setInterval(async () => {
+softwareVersionTick();
+
+const NOTIFICATIONS_INTERVAL_MS = 10000;
+
+async function notificationsTick(): Promise<void> {
   try {
-    await processStatefulNotifications();
-  } catch (error) {
-    console.error("Failed to process stateful notifications", error);
-  }
-
-  try {
-    const result = await sendNotifications();
-    if (result.pendingCount === 0) return;
-    console.info(
-      `Processed ${result.pendingCount} notification transports. Sent ${result.sentCount}, failed ${result.failedCount}.`,
-    );
-
-    if (result.failedCount > 0) {
-      console.error("Notification transport failures", result.failures);
+    try {
+      await processStatefulNotifications();
+    } catch (error) {
+      console.error("Failed to process stateful notifications", error);
     }
-  } catch (error) {
-    console.error("Failed to process pending notifications", error);
+
+    try {
+      const deleted = await deleteExpiredNotificationMarkers();
+      if (deleted > 0) {
+        console.info(`Deleted ${deleted} expired notification markers.`);
+      }
+    } catch (error) {
+      console.error("Failed to sweep expired notification markers", error);
+    }
+
+    try {
+      const result = await sendNotifications();
+      if (result.pendingCount > 0) {
+        console.info(
+          `Processed ${result.pendingCount} notification transports. Sent ${result.sentCount}, failed ${result.failedCount}.`,
+        );
+
+        if (result.failedCount > 0) {
+          console.error("Notification transport failures", result.failures);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to process pending notifications", error);
+    }
+  } finally {
+    setTimeout(notificationsTick, NOTIFICATIONS_INTERVAL_MS);
   }
-}, 10000);
+}
+
+notificationsTick();
 
 console.log(
   `Listening on http://${validatedEnv.INTERNAL_HOST}:${validatedEnv.PORT}`,

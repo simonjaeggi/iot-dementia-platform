@@ -1,0 +1,1 @@
+ALTER TABLE "access_codes" ADD CONSTRAINT "access_codes_code_unique" UNIQUE("code");

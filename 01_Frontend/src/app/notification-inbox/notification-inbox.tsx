@@ -102,6 +102,18 @@ export default function NotificationInbox() {
     setSearchParams(nextParams, { replace: true });
   }
 
+  function handleSelectNotification(notificationId: number) {
+    setSelectedNotification(notificationId);
+
+    const notification = notifications.find(
+      (item) => item.id === notificationId,
+    );
+
+    if (!notification || notification.readAt) return;
+
+    markAsReadMutation.mutate(notificationId);
+  }
+
   function setPage(nextPage: number) {
     const clamped = Math.min(Math.max(1, nextPage), totalPages);
     if (clamped === pageNumber) return;
@@ -129,6 +141,21 @@ export default function NotificationInbox() {
     onError: (error) => {
       toast.error(
         getAxiosErrorMessage(error, "Failed to mark notifications as read."),
+      );
+    },
+  });
+
+  const markAsReadMutation = useMutation({
+    mutationFn: async (notificationId: number) => {
+      await axiosInstance.post(endpoints.notification.markRead(notificationId));
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["notifications"] });
+    },
+    onError: async (error) => {
+      await queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      toast.error(
+        getAxiosErrorMessage(error, "Failed to mark notification as read."),
       );
     },
   });
@@ -172,7 +199,7 @@ export default function NotificationInbox() {
             isLoading={notificationsQuery.isLoading}
             error={notificationsQuery.error}
             selectedNotificationId={selectedNotificationId}
-            onSelectNotification={setSelectedNotification}
+            onSelectNotification={handleSelectNotification}
             filterValue={filterInput}
             onFilterValueChange={setFilterInput}
             toolbarActions={

@@ -16,21 +16,19 @@ import {
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar"
 import { cn } from "@/lib/utils"
-
-const SETTINGS_NAV_ITEMS = [
-  { title: "Notifications", path: "/settings/notifications" },
-  { title: "Location Beacons", path: "/settings/location-beacons" },
-  { title: "Users & Roles", path: "/settings/users" },
-  { title: "Access Codes", path: "/settings/access-codes" },
-  { title: "Patient Information", path: "/settings/patient" },
-]
+import { useAuth } from "@/auth/use-auth"
+import { SETTINGS_SECTIONS } from "@/app/settings/settings-sections"
 
 export function NavSettings({
   className,
 }: React.ComponentPropsWithoutRef<typeof SidebarGroup>) {
+  const { user } = useAuth()
   const location = useLocation()
   const isOnSettings = location.pathname.startsWith("/settings")
   const [isOpen, setIsOpen] = React.useState(isOnSettings)
+  const visibleSettingsItems = SETTINGS_SECTIONS.filter(
+    (item) => !item.requiredRole || item.requiredRole === user?.role,
+  )
 
   React.useEffect(() => {
     if (isOnSettings) {
@@ -68,7 +66,7 @@ export function NavSettings({
             </SidebarMenuAction>
             {isOpen ? (
               <SidebarMenuSub>
-                {SETTINGS_NAV_ITEMS.map((item) => {
+                {visibleSettingsItems.map((item) => {
                   const isActive = location.pathname === item.path
 
                   return (

@@ -6,6 +6,7 @@ import {
   locationBeacons,
 } from "../../../db/schema";
 import {
+  claimNotificationMarker,
   createNotificationsForUsers,
   getSubscriptionsByType,
   groupSubscriptionsByUser,
@@ -21,7 +22,6 @@ import {
   ExistingUserEventSubscription,
 } from "../../../db/types";
 import { FallDetectionThresholdConfig } from "../zod/threshold.schema";
-import { hasSubscriptionTriggeredNotificationSinceTime } from "../stateless/stateless-notification.service";
 import { getPatient } from "../../misc/misc.service";
 
 type FallDetectionStateWithLabels = ExistingFallDetectionState & {
@@ -85,14 +85,10 @@ export async function processFallDetectionNotifications(
 
     const pendingSubscriptions: UserEventSubscriptionWithFallDetection[] = [];
 
+    const triggerKey = `fallDetection:dev=${state.deviceCertFingerprintSha256}:candidate=${candidateStartedAt.toISOString()}`;
     // dimiss if a subscription has already created a notification for the current state
     for (const subscription of dueSubscriptions) {
-      if (
-        await hasSubscriptionTriggeredNotificationSinceTime(
-          subscription.id,
-          candidateStartedAt,
-        )
-      ) {
+      if (!(await claimNotificationMarker(subscription.id, triggerKey))) {
         continue;
       }
 
@@ -139,10 +135,10 @@ function buildFallDetectionNotificationContent(
   const locationPhrase = roomLabel ? ` in ${roomLabel}` : "";
 
   return {
-    title: "Possible fall detected",
+    title: `${patientLabel} may have fallen`,
     message:
-      `${patientLabel} (using ${deviceLabel}) may have fallen${locationPhrase}. ` +
-      `An acceleration of ${state.triggerAccelerationMagnitudeG} g was recorded at ` +
+      `${patientLabel} may have fallen${locationPhrase} while using ${deviceLabel}. ` +
+      `The device recorded ${state.triggerAccelerationMagnitudeG} g at ` +
       `${formatSwissTimestamp(state.candidateStartedAt!)} ` +
       `and there has been no room change for ${formatDurationFromSeconds(elapsedSeconds)}.`,
   };

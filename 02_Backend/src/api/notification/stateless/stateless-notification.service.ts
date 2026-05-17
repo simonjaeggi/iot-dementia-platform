@@ -1,21 +1,28 @@
-import { eq, and, gte } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "../../../db/db";
-import {
-  userEventSubscriptions,
-  userNotifications,
-  userNotificationTransport,
-} from "../../../db/schema";
+import { userEventSubscriptions } from "../../../db/schema";
 import { formatSwissTimestamp } from "../../../shared/utils";
 import { EventDto } from "../../event/zod/event.schema";
 import {
+  claimNotificationMarker,
   createNotificationsForUsers,
   groupSubscriptionsByUser,
 } from "../notification.service";
-import { isStatelessSubscriptionType } from "../zod/subscription.types";
+import {
+  isRateLimitedSubscriptionType,
+  isStatelessSubscriptionType,
+  StatelessSubscriptionType,
+} from "../zod/subscription.types";
 import { matchesStatelessThreshold } from "./stateless-notification-threshold.service";
+import { getDevice } from "../../device/device.web.service";
+import { validatedEnv } from "../../../env-validation";
+import { ExistingUserEventSubscription } from "../../../db/types";
 
 /**
- * Checks if a stateless event matches with a user subscription. On match, create notification for subscribed users.
+ * Checks if a stateless event matches with a user subscription. 
+ * On match, check if the event has already been sent in the current 
+ * deduplication window if the event type is rate limited. 
+ * Create outstanding notifications.
  * @param eventId DB Event id, is stored as triggerEventId in the notification for later reference.
  * @param event Event to check for subscriptions and create notifications and transports.
  */
@@ -30,7 +37,9 @@ export async function processStatelessNotifications(
   const subscriptions = await db
     .select()
     .from(userEventSubscriptions)
-    .where(eq(userEventSubscriptions.type, event.type));
+    .where(
+      eq(userEventSubscriptions.type, event.type as StatelessSubscriptionType),
+    );
 
   const matchingSubscriptions = subscriptions.filter(
     (subscription) =>
@@ -41,11 +50,53 @@ export async function processStatelessNotifications(
       matchesStatelessThreshold(event, subscription.thresholdConfig ?? null),
   );
 
+  const triggerKey = buildSensorTriggerKey(event);
+  const subscriptionsToNotify: ExistingUserEventSubscription[] = [];
+  for (const subscription of matchingSubscriptions) {
+    if (triggerKey === null) {
+      subscriptionsToNotify.push(subscription);
+      continue;
+    }
+    if (
+      await claimNotificationMarker(subscription.id, triggerKey.key, triggerKey.expiresAt)
+    ) {
+      subscriptionsToNotify.push(subscription);
+    }
+  }
+
+  if (subscriptionsToNotify.length === 0) {
+    return;
+  }
+
   await createNotificationsForUsers(
-    groupSubscriptionsByUser(matchingSubscriptions),
-    buildStatelessNotificationContent(event),
+    groupSubscriptionsByUser(subscriptionsToNotify),
+    await buildStatelessNotificationContent(event),
     eventId,
   );
+}
+
+/**
+ * Builds a notification trigger key for noisy sensor events using a fixed
+ * time bucket. Returns null for event types that should not be bucketed.
+ * @param event Stateless event
+ * @returns Trigger key and expiry, or null if event type is not rate limited.
+ */
+function buildSensorTriggerKey(
+  event: EventDto,
+): { key: string; expiresAt: Date } | null {
+  if (!isRateLimitedSubscriptionType(event.type)) {
+    return null;
+  }
+
+  const deduplicationTimeDuration = validatedEnv.SENSOR_NOTIFICATION_WINDOW_SECONDS * 1000;
+  const timeBucket = Math.floor(event.time.getTime() / deduplicationTimeDuration);
+  const deviceFingerprint =
+    event.source.kind === "device" ? event.source.deviceFingerprint : "any";
+
+  return {
+    key: `${event.type}:dev=${deviceFingerprint}:bucket=${timeBucket}`,
+    expiresAt: new Date((timeBucket + 1) * deduplicationTimeDuration),
+  };
 }
 
 /**
@@ -73,14 +124,21 @@ function matchesSubscriptionDeviceScope(
  * @param event
  * @returns {{ title: string; message: string }} Object containing the title and message for a user notification.
  */
-function buildStatelessNotificationContent(event: EventDto): {
+async function buildStatelessNotificationContent(event: EventDto): Promise<{
   title: string;
   message: string;
-} {
+}> {
   const title = `Event: ${event.type}`;
-  let message = `A ${event.type} event was recorded at ${formatSwissTimestamp(event.time)}.`;
-
-  const formattedDetails = formatStatelessNotificationDetails(event);
+  let message = `You have a new notification. The following event was recorded at ${formatSwissTimestamp(event.time)}.`;
+  let device;
+  if (event.source.kind === "device") {
+    device = await getDevice(event.source.deviceFingerprint);
+  }
+  const deviceName = device?.name ? device.name : null;
+  const formattedDetails = formatStatelessNotificationDetails(
+    event,
+    deviceName,
+  );
 
   if (formattedDetails) {
     message += `\n\n${formattedDetails}`;
@@ -94,18 +152,43 @@ function buildStatelessNotificationContent(event: EventDto): {
  * @param event Event to format details for.
  * @returns Formatted event details, or null if no details should be shown.
  */
-function formatStatelessNotificationDetails(event: EventDto): string | null {
+function formatStatelessNotificationDetails(
+  event: EventDto,
+  deviceName: string | null,
+): string | null {
   switch (event.type) {
     case "login":
-      return `The user with email ${event.data.user.email} logged into the system.`;
+      return `${event.data.user.email} logged in.`;
     case "register":
-      return `A new user was registered using the email: ${event.data.user.email}.`;
+      return `${event.data.user.email} registered a new account.`;
+    case "passwordChange":
+      return `${event.data.user.email} changed their password.`;
+    case "roleChange":
+      return `${event.data.user.email} changed ${event.data.changedUser.email}'s role from ${event.data.fromRole} to ${event.data.toRole}.`;
+    case "userDelete":
+      return `${event.data.user.email} deleted the account for ${event.data.deletedUser.email}.`;
+    case "accessCode":
+      return `${event.data.user.email} ${event.data.action} access code #${event.data.codeId}.`;
     case "corruptDeviceConfig":
-      return `A new device configuration was rejected by a device. The device fell back to config version ${event.data.fallbackVersion}.`;
+      return `A device rejected the new configuration and fell back to version ${event.data.fallbackVersion}.`;
     case "temperature":
-      return `Temperature: ${event.data.value} ${event.data.unit}`;
+      return `The temperature is ${event.data.value} ${event.data.unit}.`;
     case "lightIntensity":
-      return `Light intensity: ${event.data.lux} lux`;
+      return `The light level is ${event.data.lux} lux.`;
+    case "noiseLevel":
+      return `The noise level is about ${event.data.approx_db} dB. Raw microphone level: ${event.data.dbfs} dBFS.`;
+    case "humidity":
+      return `The humidity is ${event.data.percentage}%.`;
+    case "infrastructure":
+      return `Infrastructure is currently ${event.data.status}.`;
+    case "updateAvailable":
+      return `Version ${event.data.version} is available for devices.`;
+    case "systemBoot": {
+      if (event.source.kind === "device") {
+        return `Device ${deviceName || "Unnamed Device"} has just started.`;
+      }
+      return "A device has just started.";
+    }
     default:
       if ("data" in event) {
         return JSON.stringify(event.data, null, 2);
@@ -113,32 +196,4 @@ function formatStatelessNotificationDetails(event: EventDto): string | null {
 
       return null;
   }
-}
-
-/**
- * Checks if a subscription has triggered a notification since a certain time.
- * @param subscriptionId
- * @param time
- * @returns True if it has, false otherwise.
- */
-export async function hasSubscriptionTriggeredNotificationSinceTime(
-  subscriptionId: number,
-  time: Date,
-): Promise<boolean> {
-  const rows = await db
-    .select({ id: userNotificationTransport.id })
-    .from(userNotificationTransport)
-    .innerJoin(
-      userNotifications,
-      eq(userNotificationTransport.userNotificationId, userNotifications.id),
-    )
-    .where(
-      and(
-        eq(userNotificationTransport.userEventSubscriptionId, subscriptionId),
-        gte(userNotifications.createdAt, time),
-      ),
-    )
-    .limit(1);
-
-  return !!rows[0];
 }

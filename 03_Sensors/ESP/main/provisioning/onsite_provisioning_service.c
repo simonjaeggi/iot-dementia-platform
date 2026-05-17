@@ -95,9 +95,9 @@ static esp_err_t handle_set(httpd_req_t *req)
     httpd_query_key_value(body, "password", pass, sizeof(pass));
 
     ESP_LOGI(TAG, "Received provisioning data. ssid=%s host=%s", ssid, host);
-    esp_err_t ssid_err = nvs_set_string(ssid_key, ssid);
-    esp_err_t pass_err = nvs_set_string(password_key, pass);
-    esp_err_t host_err = nvs_set_string(host_key, host);
+    esp_err_t ssid_err = nvs_cfg_set_string(ssid_key, ssid);
+    esp_err_t pass_err = nvs_cfg_set_string(password_key, pass);
+    esp_err_t host_err = nvs_cfg_set_string(host_key, host);
 
     ESP_LOGI(TAG, "NVS write result: ssid=%s host=%s pass=%s",
              esp_err_to_name(ssid_err),

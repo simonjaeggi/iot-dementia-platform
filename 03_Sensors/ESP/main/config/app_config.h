@@ -1,5 +1,5 @@
 #pragma once
-
+#define BOOT_DELAY_MS 0
 // If set, prompt for a new certificate even if one is found in NVS.
 #define PROV_CERT_OVERWRITE 0
 // If set, force a new CSR even if a certificate already exists.

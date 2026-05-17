@@ -1,6 +1,6 @@
 import { useState } from "react";
 import axios from "axios";
-import { IconCheck, IconCopy, IconEdit } from "@tabler/icons-react";
+import { IconCheck, IconEdit } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -86,15 +86,6 @@ function formatSensorDetails(sensor: DeviceSensor) {
 
   return details.join(" | ");
 }
-
-function shortenFingerprint(value: string, length = 32) {
-  if (value.length <= length) {
-    return value;
-  }
-
-  return `${value.slice(0, length)}...`;
-}
-
 
 type DeviceDetailsPanelProps = {
   fingerprint: string | null;
@@ -284,37 +275,6 @@ export function DeviceDetailsPanel({
                     {isEditingName ? "Save device name" : "Edit device name"}
                   </span>
                 </Button>
-              </div>
-              <div className="grid gap-3">
-                <div>
-                  <div className="text-muted-foreground text-xs">
-                    Fingerprint
-                  </div>
-                  <div className="mt-0.5 flex items-center gap-1.5">
-                    <div
-                      className="text-sm font-medium"
-                      title={deviceQuery.data.certFingerprintSha256}
-                    >
-                      {shortenFingerprint(
-                        deviceQuery.data.certFingerprintSha256,
-                      )}
-                    </div>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted/60"
-                      onClick={() => {
-                        navigator.clipboard.writeText(
-                          deviceQuery.data!.certFingerprintSha256,
-                        );
-                        toast.success("Copied fingerprint");
-                      }}
-                    >
-                      <IconCopy className="size-4" />
-                      <span className="sr-only">Copy fingerprint</span>
-                    </Button>
-                  </div>
-                </div>
               </div>
             </div>
 

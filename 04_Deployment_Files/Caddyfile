@@ -1,0 +1,89 @@
+
+bscraspi.burmese-economy.ts.net {
+	header {
+		Strict-Transport-Security "max-age=86400"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Frame-Options "DENY"
+		Content-Security-Policy "
+			default-src 'self';
+			base-uri 'self';
+			object-src 'none';
+			frame-ancestors 'none';
+			form-action 'self';
+
+			script-src 'self';
+			style-src 'self';
+			img-src 'self' data:;
+			font-src 'self';
+			connect-src 'self' wss://bscraspi.burmese-economy.ts.net https://bscraspi.burmese-economy.ts.net;
+			worker-src 'self';
+		"
+	}
+
+	@mtls_on_web path /api/device/mtls /api/device/mtls/*
+	handle @mtls_on_web {
+		respond "Not Found" 404
+	}
+
+	@web_api path /api/auth /api/auth/* /api/device/web /api/device/web/* /api/health /api/event /api/event/* /api/notification /api/notification/* /api/misc/* /api/misc
+	handle @web_api {
+		reverse_proxy localhost:3000
+	}
+
+	@api_other path /api/*
+	handle @api_other {
+		respond "Not Found" 404
+	}
+
+	handle {
+		reverse_proxy localhost:5173
+	}
+}
+
+bscraspi.burmese-economy.ts.net:8444 {
+	header {
+		Strict-Transport-Security "max-age=86400"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Frame-Options "DENY"
+		Content-Security-Policy "
+			default-src 'self';
+			base-uri 'self';
+			object-src 'none';
+			frame-ancestors 'none';
+			form-action 'self';
+
+			script-src 'self' 'unsafe-inline';
+			style-src 'self' 'unsafe-inline';
+			img-src 'self' data: blob:;
+			font-src 'self' data:;
+			connect-src 'self' https://bscraspi.burmese-economy.ts.net:8444 wss://bscraspi.burmese-economy.ts.net:8444;
+			manifest-src 'self';
+			worker-src 'self' blob:;
+		"
+	}
+	reverse_proxy 127.0.0.1:8080
+}
+
+bscraspi.local:8443, bscraspi.burmese-economy.ts.net:8443 {
+	tls /etc/caddy/certs/bscraspi.local.crt /etc/caddy/certs/bscraspi.local.key {
+		client_auth {
+			mode require_and_verify
+			trusted_ca_cert_file /etc/caddy/certs/device-ca.pem
+		}
+	}
+
+	@mtls_api path /api/device/mtls /api/device/mtls/*
+	handle @mtls_api {
+		reverse_proxy localhost:3000 {
+			header_up X-Device-Fingerprint {tls_client_fingerprint}
+			header_up X-Client-Subject {tls_client_subject}
+			header_up X-Client-Serial {tls_client_serial}
+		}
+	}
+
+	handle {
+		respond "Not Found" 404
+	}
+}
