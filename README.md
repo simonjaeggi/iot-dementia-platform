@@ -3,22 +3,31 @@
 This repository contains the full stack for the thesis project:
 
 - `01_Frontend`: web frontend
-- `02_Backend`: backend API, database setup, TLS, and reverse proxy setup
+- `02_Backend`: backend API and database setup
 - `03_Sensors`: ESP firmware and device provisioning tools
+- `04_Deployment_Files`: deployment configuration
+- `05_Documentation`: project documentation, including the thesis and the thesis video
 
 ## Folder Structure
 
 ```text
 .
 ├── 01_Frontend/
+│   └── src/
 ├── 02_Backend/
+│   ├── db/
+│   ├── drizzle/
+│   └── src/
 ├── 03_Sensors/
 │   ├── ESP/
 │   └── device-provisioning/
+├── 04_Deployment_Files/
+├── 05_Documentation/
 └── README.md
 ```
 
 ## Documentation Map
+Frontend, Backend and Sensor Firmware have individual README files for more specific details.
 
 ### Frontend
 
@@ -33,32 +42,14 @@ This repository contains the full stack for the thesis project:
 - [`03_Sensors/ESP/README.md`](03_Sensors/ESP/README.md): ESP firmware notes, certificate provisioning flow, and AP provisioning
 - [`03_Sensors/device-provisioning/README.md`](03_Sensors/device-provisioning/README.md): host-side provisioning scripts for issuing certificates, registering them in the backend, and sending them to the device
 
-## Recommended Reading Order
-
-1. Start here for the repository structure.
-2. Read [`02_Backend/README.md`](02_Backend/README.md) to set up the backend and certificate authority.
-3. Read [`03_Sensors/device-provisioning/README.md`](03_Sensors/device-provisioning/README.md) for certificate issuance and provisioning scripts.
-4. Read [`03_Sensors/ESP/README.md`](03_Sensors/ESP/README.md) for the device-side workflow.
-5. Read [`01_Frontend/README.md`](01_Frontend/README.md) for frontend setup.
-
-## Notes
-
-- Device authentication depends on certificate fingerprints stored in the backend `device_certificates` table.
-- The ESP generates and keeps its private key on-device. Only the signed client certificate is provisioned to the device.
 
 ## Adding a Sensor
+This is a note for future maintainers. It aims to guide a developer through the process of adding a new sensor to the system.
 
 Adding support for a new sensor usually touches both the backend and the ESP firmware. The backend defines the configuration and event contract, and the ESP implements the actual sensor handling and emits payloads that match that contract.
-
-### Recommended Sequence
 
 1. Define the sensor configuration shape and event payload shape on the backend.
 2. Extend the ESP device configuration model so it can parse, store, and reload that sensor configuration from NVS.
 3. Implement the sensor-specific firmware logic and event generation on the ESP.
-4. Validate that the backend config sent to the device matches the ESP parser exactly.
+4. Validate that the backend config sent to the device matches the ESP parser.
 5. If the new sensor should be visible in the UI or notifications, update the frontend separately.
-
-### Implementation Guides
-
-- Backend contract and config changes: [`02_Backend/README.md#adding-a-sensor-on-the-backend`](02_Backend/README.md#adding-a-sensor-on-the-backend)
-- ESP device config and runtime changes: [`03_Sensors/ESP/README.md#adding-a-sensor-on-the-esp`](03_Sensors/ESP/README.md#adding-a-sensor-on-the-esp)
