@@ -1,36 +1,36 @@
-# Backend Setup
+# Overview
+Bun + Hono Backend connecting to a PostgreSQL database.
 
+## Folder Structure
+
+```text
+.
+├── db/
+├── drizzle/
+├── src/
+│   ├── api/
+│   ├── db/
+│   ├── email/
+│   ├── push/
+│   ├── shared/
+│   └── software-update/
+├── Dockerfile
+├── package.json
+└── README.md
+```
+
+- `db`: local development database Docker Compose setup
+- `drizzle`: database migrations
+- `src/api`: HTTP routes, controllers and services
+- `src/db`: database connection and schema
+- `src/email`, `src/push`, `src/software-update`: external service integration
+
+
+# Backend Setup
 ## Requirements
 - Bun
 - Docker + Docker Compose
-
-## Install Bun
-```bash
-curl -fsSL https://bun.com/install | bash
-```
-(Restart the shell)
-
-## Install Docker
-
-### Raspberry Pi (see the [official docs](https://docs.docker.com/engine/install/raspberry-pi-os/#install-using-the-repository))
-```bash
-sudo apt-get update
-sudo apt-get install -y ca-certificates curl
-sudo install -m 0755 -d /etc/apt/keyrings
-sudo curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
-sudo chmod a+r /etc/apt/keyrings/docker.asc
-
-echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
-  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-sudo apt-get update
-sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-
-docker --version
-docker compose version
-```
+- Caddy
 
 ## Environment
 Create `.env` in the project root (see [`.env.example`](.env.example)).
@@ -120,11 +120,8 @@ openssl req -x509 -new -nodes \
 
 ### Install and Set Up Caddy
 
-Install Caddy and copy the certificates:
+Copy the certificates:
 ```bash
-sudo apt update
-sudo apt install -y caddy
-
 sudo mkdir -p /etc/caddy/certs
 sudo cp ~/server-certs/bscraspi.local.crt /etc/caddy/certs/
 sudo cp ~/server-certs/bscraspi.local.key /etc/caddy/certs/
@@ -159,101 +156,7 @@ Configure Caddy:
 sudo nano /etc/caddy/Caddyfile
 ```
 
-Add the reverse proxy configuration below. This assumes the backend runs on port `3000` for users, `8443` for devices, the frontend on port `5173`, and ntfy on port `8444`.
-```caddyfile
-bscraspi.burmese-economy.ts.net {
-	header {
-		Strict-Transport-Security "max-age=86400"
-		X-Content-Type-Options "nosniff"
-		Referrer-Policy "strict-origin-when-cross-origin"
-		X-Frame-Options "DENY"
-		Content-Security-Policy "
-			default-src 'self';
-			base-uri 'self';
-			object-src 'none';
-			frame-ancestors 'none';
-			form-action 'self';
-
-			script-src 'self';
-			style-src 'self';
-			img-src 'self' data:;
-			font-src 'self';
-			connect-src 'self' wss://bscraspi.burmese-economy.ts.net https://bscraspi.burmese-economy.ts.net;
-			worker-src 'self';
-		"
-	}
-
-	@mtls_on_web path /api/device/mtls /api/device/mtls/*
-	handle @mtls_on_web {
-		respond "Not Found" 404
-	}
-
-	@web_api path /api/auth /api/auth/* /api/device/web /api/device/web/* /api/health /api/event /api/event/* /api/notification /api/notification/* /api/misc/* /api/misc
-	handle @web_api {
-		reverse_proxy localhost:3000
-	}
-
-	@api_other path /api/*
-	handle @api_other {
-		respond "Not Found" 404
-	}
-
-	handle {
-		reverse_proxy localhost:5173
-	}
-}
-
-bscraspi.burmese-economy.ts.net:8444 {
-	header {
-		Strict-Transport-Security "max-age=86400"
-		X-Content-Type-Options "nosniff"
-		Referrer-Policy "strict-origin-when-cross-origin"
-		X-Frame-Options "DENY"
-		Content-Security-Policy "
-			default-src 'self';
-			base-uri 'self';
-			object-src 'none';
-			frame-ancestors 'none';
-			form-action 'self';
-
-			script-src 'self' 'unsafe-inline';
-			style-src 'self' 'unsafe-inline';
-			img-src 'self' data: blob:;
-			font-src 'self' data:;
-			connect-src 'self' https://bscraspi.burmese-economy.ts.net:8444 wss://bscraspi.burmese-economy.ts.net:8444;
-			manifest-src 'self';
-			worker-src 'self' blob:;
-		"
-	}
-
-	reverse_proxy 127.0.0.1:8080
-}
-
-bscraspi.local:8443, bscraspi.burmese-economy.ts.net:8443 {
-	log {
-		level DEBUG
-	}
-
-	tls /etc/caddy/certs/bscraspi.local.crt /etc/caddy/certs/bscraspi.local.key {
-		client_auth {
-			mode require_and_verify
-			trusted_ca_cert_file /etc/caddy/certs/device-ca.pem
-		}
-	}
-
-	@mtls_api path /api/device/mtls /api/device/mtls/*
-	handle @mtls_api {
-		reverse_proxy localhost:3000 {
-			header_up X-Device-Fingerprint {tls_client_fingerprint}
-			header_up X-Client-Subject {tls_client_subject}
-			header_up X-Client-Serial {tls_client_serial}
-		}
-	}
-
-	handle {
-		respond "Not Found" 404
-	}
-}
+Add the reverse proxy configuration [`04_Deployment_Files/Caddyfile/`](../04_Deployment_Files/Caddyfile).
 ```
 Format and reload Caddy:
 ```bash
@@ -273,16 +176,20 @@ The backend authorizes devices by certificate fingerprint. A device certificate 
 
 This README only covers the backend-side prerequisites:
 
-1. Create the device CA in this document.
+1. Create the device CA.
 2. Issue device certificates with that CA.
 3. Ensure each issued certificate is registered in `device_certificates`.
 
-The operational provisioning flow lives with the device docs:
+The device provisioning is documented in the ESP READMEs:
 
 - ESP/device workflow: [`../03_Sensors/ESP/README.md`](../03_Sensors/ESP/README.md)
 - Provisioning scripts and host-side commands: [`../03_Sensors/device-provisioning/README.md`](../03_Sensors/device-provisioning/README.md)
 
-## Adding a Sensor on the Backend
+# Code Maintenance
+This section is aimed to help a future maintainer or developer by providing guidance.
+
+## Adding a Sensor (Backend-Side)
+This is the backend specific guidance to adding a new sensor to the system. 
 
 When adding a new sensor, the backend is responsible for defining the configuration and event contract that the ESP must follow.
 
@@ -291,7 +198,7 @@ When adding a new sensor, the backend is responsible for defining the configurat
 Update the device configuration schema in `src/api/device/zod/device-config.schema.ts`.
 If the sensor should be included in a station template, also update `src/api/device/device-config.templates.ts`.
 
-The resulting JSON shape must match the ESP parser exactly, including field names and numeric types.
+The resulting JSON shape must match the ESP parser, including field names and numeric types.
 
 ### Event Contract
 
@@ -321,4 +228,3 @@ When adding a new notification type:
    Add or adjust a file in [`src/api/notification/stateful/`](src/api/notification/stateful/) and register it in [`src/api/notification/stateful/stateful-notification.service.ts`](src/api/notification/stateful/stateful-notification.service.ts).
 
 As a sidenote, the frontend should also be updated.
-The usual entry points are [`../01_Frontend/src/app/settings/settings.config.ts`](../01_Frontend/src/app/settings/settings.config.ts), [`../01_Frontend/src/app/settings/notification-subscription-card.tsx`](../01_Frontend/src/app/settings/notification-subscription-card.tsx), [`../01_Frontend/src/app/settings/notification-subscription-section.tsx`](../01_Frontend/src/app/settings/notification-subscription-section.tsx), and [`../01_Frontend/src/app/settings/settings.tsx`](../01_Frontend/src/app/settings/settings.tsx).
