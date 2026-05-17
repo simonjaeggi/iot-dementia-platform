@@ -27,6 +27,8 @@ Bun + Hono Backend connecting to a PostgreSQL database.
 
 
 # Backend Setup
+This is a setup guide that assumes the gateway and backend are running on the same machine. It uses the names and configuration parameters from the thesis deployment, which should be adjusted for the need of the situation for other deployments. 
+
 ## Requirements
 - Bun
 - Docker + Docker Compose
@@ -157,7 +159,7 @@ sudo nano /etc/caddy/Caddyfile
 ```
 
 Add the reverse proxy configuration [`04_Deployment_Files/Caddyfile/`](../04_Deployment_Files/Caddyfile).
-```
+
 Format and reload Caddy:
 ```bash
 sudo caddy fmt --overwrite /etc/caddy/Caddyfile
