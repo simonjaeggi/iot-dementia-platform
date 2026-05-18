@@ -14,7 +14,7 @@ const DEFAULT_CENTER: [number, number] = [8.4312, 47.1416];
 const DEFAULT_ZOOM = 12;
 const LOOKBACK_DAYS = 7;
 const FADE_WINDOW_MS = LOOKBACK_DAYS * 24 * 60 * 60 * 1000;
-const MIN_FEATURE_DISTANCE_METERS = 20;
+const MIN_FEATURE_DISTANCE_METERS = 60;
 
 const POINTS_SOURCE_ID = "outdoor-locations";
 const POINTS_LAYER_ID = "outdoor-locations-points";
