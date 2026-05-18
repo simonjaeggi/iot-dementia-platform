@@ -4,6 +4,7 @@ stages:
 variables:
   DOCKER_HOST: tcp://docker:2375
   DOCKER_TLS_CERTDIR: ""
+  DOCKER_PLATFORMS: linux/amd64,linux/arm64/v8
 
 default:
   image: docker:27.5.1
@@ -26,8 +27,8 @@ build_backend_image:
       VERSION="${CI_COMMIT_TAG:-$CI_COMMIT_SHORT_SHA}"
       IMAGE="$CI_REGISTRY_IMAGE/backend:$VERSION"
 
-      docker build --build-arg APP_VERSION="$VERSION" -t "$IMAGE" 02_Backend
-      docker push "$IMAGE"
+      docker buildx create --use
+      docker buildx build --platform "$DOCKER_PLATFORMS" --build-arg APP_VERSION="$VERSION" -t "$IMAGE" --push 02_Backend
 
 build_frontend_image:
   stage: build
@@ -41,5 +42,5 @@ build_frontend_image:
       VERSION="${CI_COMMIT_TAG:-$CI_COMMIT_SHORT_SHA}"
       IMAGE="$CI_REGISTRY_IMAGE/frontend:$VERSION"
 
-      docker build --build-arg APP_VERSION="$VERSION" -t "$IMAGE" 01_Frontend
-      docker push "$IMAGE"
+      docker buildx create --use
+      docker buildx build --platform "$DOCKER_PLATFORMS" --build-arg APP_VERSION="$VERSION" -t "$IMAGE" --push 01_Frontend

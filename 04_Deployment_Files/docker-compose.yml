@@ -33,5 +33,14 @@ services:
 
     command: sh -c "bunx drizzle-kit migrate && bun src/index.ts"
 
+  frontend:
+    image: cr.gitlab.switch.ch/hslu/research/iotsas/iotss/edu-projects/baa-projects/ba-2026-fs26-simonjaeggi/frontend:v0.1.0
+    env_file:
+      - .env.frontend
+    depends_on:
+      - backend
+    ports:
+      - "127.0.0.1:5173:3000"
+
 volumes:
   pgdata:
