@@ -6,7 +6,6 @@ This repository contains the full stack for the thesis project:
 - `02_Backend`: backend API and database setup
 - `03_Sensors`: ESP firmware and device provisioning tools
 - `04_Deployment_Files`: deployment configuration
-- `05_Documentation`: project documentation, including the thesis and the thesis video
 
 ## Folder Structure
 
@@ -22,7 +21,6 @@ This repository contains the full stack for the thesis project:
 │   ├── ESP/
 │   └── device-provisioning/
 ├── 04_Deployment_Files/
-├── 05_Documentation/
 └── README.md
 ```
 
@@ -53,3 +51,12 @@ Adding support for a new sensor usually touches both the backend and the ESP fir
 3. Implement the sensor-specific firmware logic and event generation on the ESP.
 4. Validate that the backend config sent to the device matches the ESP parser.
 5. If the new sensor should be visible in the UI or notifications, update the frontend separately.
+
+
+## License
+
+Copyright (C) 2026 Your Name
+
+This project is licensed under the [GNU Affero General Public License v3.0](LICENSE) or (at your option) any later version.
+
+You may use, modify and share this code, but any modified version, including one run as a network service, must also be released under the AGPL-3.0 with its source code available.
